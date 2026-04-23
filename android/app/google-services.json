@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "650786366043",
+    "project_id": "palavraviva-app-2026",
+    "storage_bucket": "palavraviva-app-2026.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:650786366043:android:8c00a75f15b4a4c189957e",
+        "android_client_info": {
+          "package_name": "com.palavraviva.palavra_viva"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDPi0KXsE6KZZwwJTaDKhfcXgW_VrVq75k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

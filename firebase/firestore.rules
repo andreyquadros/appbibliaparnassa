@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
+    match /users/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+
+      match /prayers/{prayerId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+
+      match /fasts/{fastId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+
+      match /notificationQueue/{notificationId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+
+      match /{subCollection}/{docId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    match /dailyStudies/{studyId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /rewards/{rewardId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /weeklyRankings/{weekId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+
+      match /entries/{entryId} {
+        allow read: if true;
+        allow create, update, delete: if isAdmin();
+      }
+    }
+
+    match /communityPosts/{postId} {
+      allow read: if true;
+      allow create: if signedIn();
+      allow update, delete: if isAdmin() || (signedIn() && request.auth.uid == resource.data.userId);
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

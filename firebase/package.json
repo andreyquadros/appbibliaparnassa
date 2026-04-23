@@ -1,0 +1,19 @@
+{
+  "name": "firebase",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "emulators": "firebase emulators:start --config firebase.json --project palavraviva-app-2026",
+    "emulators:only-core": "firebase emulators:start --only firestore,auth,functions,storage,pubsub --config firebase.json --project palavraviva-app-2026",
+    "deploy": "firebase deploy --config firebase.json --project palavraviva-app-2026",
+    "firestore:rules": "firebase deploy --only firestore:rules --config firebase.json --project palavraviva-app-2026",
+    "firestore:indexes": "firebase deploy --only firestore:indexes --config firebase.json --project palavraviva-app-2026"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "firebase-tools": "^15.15.0"
+  }
+}
