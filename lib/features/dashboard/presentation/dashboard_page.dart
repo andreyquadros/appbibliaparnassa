@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:palavra_viva/core/constants/app_colors.dart';
 import 'package:palavra_viva/core/constants/app_strings.dart';
 import 'package:palavra_viva/core/services/bible_api_service.dart';
+import 'package:palavra_viva/shared/branding/palavra_viva_logo.dart';
 import 'package:palavra_viva/shared/widgets/main_bottom_nav_bar.dart';
 import 'package:palavra_viva/shared/widgets/manadas_balance_chip.dart';
 import 'package:palavra_viva/shared/widgets/pv_scaffold.dart';
@@ -127,14 +128,28 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
       body: ListView(
         children: [
-          Text(
-            'Que a paz esteja contigo,',
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            widget.userName,
-            style: Theme.of(context).textTheme.headlineLarge,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const PalavraVivaLogo(showTitle: false, size: 68),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Que a paz esteja contigo,',
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.userName,
+                      style: Theme.of(context).textTheme.headlineLarge,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 22),
           _SectionLabel(title: 'Jornada Anual', trailing: 'Dia $readingDay'),
