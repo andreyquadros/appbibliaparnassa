@@ -74,6 +74,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            isShrinkResources = false
             signingConfig =
                 if (useCiSigning || !localStoreFile.isNullOrBlank()) {
                     signingConfigs.getByName("release")
