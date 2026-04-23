@@ -15,11 +15,11 @@ Rode este script na sua maquina:
 
 Ele cria:
 
-- `~/Documents/BibliaParnassa/android-signing/parnassa-upload-keystore.jks`
+- `~/Documents/BibliaParnassa/android-signing/parnassa-upload-keystore.p12`
 - `~/Documents/BibliaParnassa/android-signing/parnassa-upload-cert.pem`
 - `~/Documents/BibliaParnassa/android-signing/keystore-secrets.txt`
 - `android/key.properties`
-- `android/keystore/upload-keystore.jks`
+- `android/keystore/upload-keystore.p12`
 
 ## Subir para a Codemagic
 
@@ -33,6 +33,7 @@ Segundo a documentacao oficial da Codemagic, o keystore deve ser enviado em:
 Use:
 
 - Reference name: `parnassa_upload_keystore`
+- Store type: `PKCS12`
 
 O `codemagic.yaml` ja referencia esse nome no campo `android_signing`.
 

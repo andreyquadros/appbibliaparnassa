@@ -1,4 +1,5 @@
+storeType=PKCS12
 storePassword=replace-with-keystore-password
 keyPassword=replace-with-key-password
 keyAlias=parnassa_upload
-storeFile=keystore/upload-keystore.jks
+storeFile=keystore/upload-keystore.p12

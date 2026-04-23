@@ -10,6 +10,7 @@ val keystoreProperties =
 
 val useCiSigning = System.getenv("CI") == "true" && !System.getenv("CM_KEYSTORE_PATH").isNullOrBlank()
 val localStoreFile = keystoreProperties.getProperty("storeFile")
+val localStoreType = keystoreProperties.getProperty("storeType")
 val localStorePassword = keystoreProperties.getProperty("storePassword")
 val localKeyAlias = keystoreProperties.getProperty("keyAlias")
 val localKeyPassword = keystoreProperties.getProperty("keyPassword")
@@ -51,6 +52,7 @@ android {
         create("release") {
             if (useCiSigning) {
                 storeFile = file(System.getenv("CM_KEYSTORE_PATH"))
+                storeType = System.getenv("CM_KEYSTORE_TYPE") ?: "PKCS12"
                 storePassword = System.getenv("CM_KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("CM_KEY_ALIAS")
                 keyPassword = System.getenv("CM_KEY_PASSWORD")
@@ -61,6 +63,7 @@ android {
                     !localKeyPassword.isNullOrBlank()
             ) {
                 storeFile = rootProject.file(localStoreFile)
+                storeType = localStoreType ?: "PKCS12"
                 storePassword = localStorePassword
                 keyAlias = localKeyAlias
                 keyPassword = localKeyPassword
