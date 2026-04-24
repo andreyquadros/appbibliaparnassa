@@ -81,27 +81,40 @@ class StudyRepository {
       _ => _now(),
     };
 
+    final title = _string(data['title'], preset.title);
+    final passage = _string(data['passage'], preset.passage);
+    final application = _string(data['application'], preset.application);
+    final theme = _string(data['theme'], preset.theme);
+
     return DailyStudy(
       dateId: dateKey,
-      title: _string(data['title'], preset.title),
-      passage: _string(data['passage'], preset.passage),
+      title: title,
+      passage: passage,
       mainText: _string(
         data['mainText'],
         _string(data['context'], preset.mainText),
       ),
       historicalContext: _string(data['context'], preset.historicalContext),
       exegesis: _string(data['exegesis'], preset.exegesis),
-      application: _string(data['application'], preset.application),
+      application: application,
       connection: _string(data['connection'], preset.connection),
       meditation: _string(data['meditation'], preset.meditation),
       memoryVerse: _string(data['memoryVerse'], preset.memoryVerse),
       guidedPrayer: _string(data['guidedPrayer'], preset.guidedPrayer),
-      quiz: quiz.isNotEmpty ? quiz : preset.quiz,
+      quiz: _ensureFiveQuestions(
+        dateKey: dateKey,
+        baseQuiz: quiz,
+        fallbackQuiz: preset.quiz,
+        title: title,
+        passage: passage,
+        theme: theme,
+        application: application,
+      ),
       reflectionQuestion: _string(
         data['reflectionQuestion'],
         preset.reflectionQuestion,
       ),
-      theme: _string(data['theme'], preset.theme),
+      theme: theme,
       generatedAt: generatedAt,
     );
   }
@@ -131,7 +144,15 @@ class StudyRepository {
       meditation: preset.meditation,
       memoryVerse: preset.memoryVerse,
       guidedPrayer: preset.guidedPrayer,
-      quiz: preset.quiz,
+      quiz: _ensureFiveQuestions(
+        dateKey: dateKey,
+        baseQuiz: preset.quiz,
+        fallbackQuiz: preset.quiz,
+        title: preset.title,
+        passage: preset.passage,
+        theme: preset.theme,
+        application: preset.application,
+      ),
       reflectionQuestion: preset.reflectionQuestion,
       theme: preset.theme,
       generatedAt: _now(),
@@ -141,6 +162,100 @@ class StudyRepository {
   _FallbackStudyPreset _fallbackPresetFor(String dateKey) {
     final hash = dateKey.codeUnits.fold<int>(0, (total, unit) => total + unit);
     return _fallbackPresets[hash % _fallbackPresets.length];
+  }
+
+  List<QuizQuestion> _ensureFiveQuestions({
+    required String dateKey,
+    required List<QuizQuestion> baseQuiz,
+    required List<QuizQuestion> fallbackQuiz,
+    required String title,
+    required String passage,
+    required String theme,
+    required String application,
+  }) {
+    final normalized = <QuizQuestion>[
+      ...baseQuiz,
+      ...fallbackQuiz.where(
+        (fallback) => baseQuiz.every((item) => item.id != fallback.id),
+      ),
+    ];
+
+    final supplements = <QuizQuestion>[
+      QuizQuestion(
+        id: 'daily-$dateKey-passage',
+        question: 'Qual passagem guia o estudo de hoje?',
+        options: <String>[
+          passage,
+          'Salmos 23:1',
+          'Mateus 6:33',
+          'Romanos 12:2',
+        ],
+        correctIndex: 0,
+        explanation: 'O estudo diário foi construído a partir de $passage.',
+      ),
+      QuizQuestion(
+        id: 'daily-$dateKey-theme',
+        question: 'Qual tema central resume melhor o estudo de hoje?',
+        options: <String>[
+          theme,
+          'Prosperidade imediata',
+          'Autossuficiência espiritual',
+          'Rituais sem transformação',
+        ],
+        correctIndex: 0,
+        explanation: 'O tema central apresentado para hoje é "$theme".',
+      ),
+      QuizQuestion(
+        id: 'daily-$dateKey-action',
+        question: 'Qual passo prático foi sugerido para hoje?',
+        options: <String>[
+          application,
+          'Ignorar a passagem e seguir a rotina',
+          'Apenas memorizar sem praticar',
+          'Esperar outra pessoa agir por você',
+        ],
+        correctIndex: 0,
+        explanation:
+            'A aplicação diária aponta para uma resposta prática ao estudo.',
+      ),
+      QuizQuestion(
+        id: 'daily-$dateKey-title',
+        question: 'Como o estudo diário foi apresentado hoje?',
+        options: <String>[
+          title,
+          'Devocional sem tema',
+          'Resumo automático semanal',
+          'Plano de leitura mensal',
+        ],
+        correctIndex: 0,
+        explanation: 'O título do estudo de hoje é "$title".',
+      ),
+      QuizQuestion(
+        id: 'daily-$dateKey-purpose',
+        question: 'Qual é a melhor atitude ao terminar o estudo de hoje?',
+        options: <String>[
+          'Levar o texto para a vida prática',
+          'Responder no impulso sem refletir',
+          'Guardar tudo apenas para depois',
+          'Comparar-se com outras pessoas',
+        ],
+        correctIndex: 0,
+        explanation:
+            'O objetivo do estudo é gerar obediência prática e constância.',
+      ),
+    ];
+
+    for (final question in supplements) {
+      final exists = normalized.any((item) => item.id == question.id);
+      if (!exists) {
+        normalized.add(question);
+      }
+      if (normalized.length >= 5) {
+        break;
+      }
+    }
+
+    return normalized.take(5).toList(growable: false);
   }
 }
 

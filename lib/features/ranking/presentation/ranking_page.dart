@@ -30,14 +30,14 @@ class RankingPage extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Constância em destaque',
+                  'Ranking de parnassas',
                   style: Theme.of(
                     context,
                   ).textTheme.headlineSmall?.copyWith(color: Colors.white),
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'O ranking celebra perseverança, não pressa. Compare seu ritmo, aprenda com a comunidade e continue avançando.',
+                  'Veja quem mais acumulou parnassas na jornada. A ideia é inspirar constância, não competição vazia.',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Colors.white.withValues(alpha: 0.88),
                     height: 1.6,
@@ -124,7 +124,7 @@ class RankingPage extends ConsumerWidget {
                           ),
                           title: Text(entry.name),
                           subtitle: Text(
-                            'Nível ${entry.level} • Streak ${entry.streak} • ${entry.weekXp} XP',
+                            'Nível ${entry.level} • Streak ${entry.streak} • ${entry.weekXp} parnassas',
                           ),
                           trailing: entry.delta == 0
                               ? const Icon(
@@ -206,7 +206,7 @@ class _PodiumCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            '${entry.weekXp} XP',
+            '${entry.weekXp} parnassas',
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
               color: isChampion ? AppColors.accent : AppColors.secondary,
             ),

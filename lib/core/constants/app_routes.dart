@@ -15,6 +15,7 @@ class AppRoutes {
   static const ranking = '/ranking';
   static const rewards = '/rewards';
   static const profile = '/profile';
+  static const savedItems = '/profile/salvos';
   static const notifications = '/notifications';
   static const community = '/community';
 }

@@ -71,6 +71,9 @@ class _FlashcardsPageState extends ConsumerState<FlashcardsPage> {
     final dueAsync = ref.watch(dueFlashcardsProvider);
     final allAsync = ref.watch(allFlashcardsProvider);
     final showBack = Navigator.of(context).canPop();
+    final dueCards = dueAsync.asData?.value ?? const <VerseFlashcard>[];
+    final allCards = allAsync.asData?.value ?? const <VerseFlashcard>[];
+    final reviewCards = dueCards.isNotEmpty ? dueCards : allCards;
 
     return PvScaffold(
       title: 'Cards',
@@ -114,31 +117,27 @@ class _FlashcardsPageState extends ConsumerState<FlashcardsPage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  dueAsync.when(
-                    data: (cards) => SizedBox(
+                  if (dueAsync.isLoading || allAsync.isLoading)
+                    const LinearProgressIndicator(
+                      minHeight: 3,
+                      color: AppColors.accent,
+                    )
+                  else
+                    SizedBox(
                       width: double.infinity,
                       child: FilledButton(
-                        onPressed: cards.isEmpty
+                        onPressed: reviewCards.isEmpty
                             ? null
-                            : () => _openReviewSession(cards),
+                            : () => _openReviewSession(reviewCards),
                         child: Text(
-                          cards.isEmpty
-                              ? 'Nenhum card pendente'
-                              : 'Revisar cards pendentes',
+                          reviewCards.isEmpty
+                              ? 'Nenhum card disponível'
+                              : dueCards.isNotEmpty
+                              ? 'Revisar cards pendentes'
+                              : 'Revisar coleção de cards',
                         ),
                       ),
                     ),
-                    loading: () => const LinearProgressIndicator(
-                      minHeight: 3,
-                      color: AppColors.accent,
-                    ),
-                    error: (error, _) => Text(
-                      'Falha ao carregar a sessão: $error',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.82),
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -745,12 +744,16 @@ class _GenerateChip extends StatelessWidget {
     return ActionChip(
       onPressed: onTap,
       label: Text(label),
-      avatar: const Icon(Icons.add_circle_outline, size: 16),
+      avatar: const Icon(
+        Icons.add_circle_outline,
+        size: 16,
+        color: AppColors.darkPrimary,
+      ),
       backgroundColor: Colors.white.withValues(alpha: 0.08),
       side: BorderSide(color: Colors.white.withValues(alpha: 0.18)),
       labelStyle: Theme.of(
         context,
-      ).textTheme.labelLarge?.copyWith(color: Colors.white),
+      ).textTheme.labelLarge?.copyWith(color: AppColors.darkPrimary),
     );
   }
 }

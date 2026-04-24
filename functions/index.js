@@ -93,6 +93,54 @@ const SEED_COMMUNITY_POSTS = [
   },
 ];
 
+const CHRISTIAN_VIDEO_CHANNELS = [
+  {
+    name: "Pastor Antônio Júnior",
+    url: "https://www.youtube.com/@prantoniojunior",
+    channelId: "UCKEM87jzVqdIfAdTr0xNBfA",
+  },
+  {
+    name: "Luciano Subirá",
+    url: "https://www.youtube.com/@lucianosubira",
+    channelId: "UCczPEsycoDKpG9ImCAnZSmg",
+  },
+  {
+    name: "JesusCopy",
+    url: "https://www.youtube.com/@jesus_copy",
+    channelId: "UC3PawQOWA2PJwnEqYkH7vHA",
+  },
+  {
+    name: "Helena Tannure",
+    url: "https://www.youtube.com/@HelenaTannure",
+    channelId: "UCjy56REvtTIQ5dxSYhYWj5A",
+  },
+  {
+    name: "Pastor Teo Hayashi",
+    url: "https://www.youtube.com/@teo.hayashi",
+    channelId: "UC6GGgZdIkwL7pvVo8PDWnbA",
+  },
+  {
+    name: "Pastor Elizeu Rodrigues",
+    url: "https://www.youtube.com/@pastorelizeurodrigues",
+    channelId: "UCcqO2S6IQU5ldiARtG5RPSQ",
+  },
+  {
+    name: "Pastor Hernandes Dias Lopes",
+    url: "https://www.youtube.com/@HernandesDiasLopesOficial",
+    channelId: "UCT8yKUrnFmq5COl15dasxog",
+  },
+  {
+    name: "Pastor Rodrigo Silva",
+    url: "https://www.youtube.com/@RodrigoSilvaArqueologia",
+    channelId: "UCTsZnZQmLpGh6GK-GyI4GoA",
+  },
+  {
+    name: "Israel com Aline",
+    url: "https://www.youtube.com/@IsraelcomAline",
+    channelId: "UCnDg9ffODoLqBB7ks3_re6Q",
+  },
+];
+
 function getDatePartsInTimeZone(date, timeZone) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
@@ -186,6 +234,65 @@ function stripMarkdownCodeFence(text) {
     return raw.replace(/^```[a-zA-Z]*\n?/, "").replace(/```$/, "").trim();
   }
   return raw;
+}
+
+function decodeXmlEntities(text) {
+  return String(text || "")
+      .replaceAll("&amp;", "&")
+      .replaceAll("&quot;", "\"")
+      .replaceAll("&apos;", "'")
+      .replaceAll("&lt;", "<")
+      .replaceAll("&gt;", ">");
+}
+
+function extractXmlTag(input, pattern) {
+  const match = String(input || "").match(new RegExp(pattern));
+  return match?.[1]?.trim() || "";
+}
+
+async function fetchYoutubeChannelVideos(channel, limit) {
+  try {
+    const response = await fetch(
+        `https://www.youtube.com/feeds/videos.xml?channel_id=${channel.channelId}`,
+    );
+
+    if (!response.ok) {
+      return {
+        ...channel,
+        videos: [],
+        errorMessage: "Nao foi possivel carregar os videos deste canal agora.",
+      };
+    }
+
+    const body = await response.text();
+    const matches = [...body.matchAll(/<entry>([\s\S]*?)<\/entry>/g)];
+    const videos = matches.slice(0, limit).map((match) => {
+      const entry = match[1] || "";
+      return {
+        videoId: extractXmlTag(entry, "<yt:videoId>(.*?)</yt:videoId>"),
+        title: decodeXmlEntities(extractXmlTag(entry, "<title>(.*?)</title>")),
+        publishedAt: extractXmlTag(entry, "<published>(.*?)</published>"),
+      };
+    }).filter((video) => video.videoId && video.title);
+
+    return {
+      ...channel,
+      videos,
+      errorMessage: videos.length > 0 ?
+        null :
+        "Nenhum video disponivel neste canal no momento.",
+    };
+  } catch (error) {
+    logger.error("Erro ao buscar feed do YouTube", {
+      channelId: channel.channelId,
+      error: String(error),
+    });
+    return {
+      ...channel,
+      videos: [],
+      errorMessage: "Nao foi possivel carregar os videos deste canal agora.",
+    };
+  }
 }
 
 function extractFirstJsonBlock(text) {
@@ -1154,6 +1261,22 @@ Responda em portugues com objetividade, sem inventar referencias.
       aiIntegration: "Falha no xAI; fallback local.",
     };
   }
+});
+
+exports.fetchChristianVideos = onCall({region: REGION}, async (request) => {
+  requireAuth(request);
+
+  const rawLimit = Number(request.data?.limit || 1);
+  const limit = Number.isFinite(rawLimit) ?
+    Math.max(1, Math.min(5, Math.trunc(rawLimit))) :
+    1;
+
+  const channels = [];
+  for (const channel of CHRISTIAN_VIDEO_CHANNELS) {
+    channels.push(await fetchYoutubeChannelVideos(channel, limit));
+  }
+
+  return {channels};
 });
 
 exports.searchVerses = onCall({region: REGION}, async (request) => {

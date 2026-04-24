@@ -1,7 +1,10 @@
 import 'dart:convert';
 
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+
+import '../../../core/services/firebase_service.dart';
 
 class ChristianChannel {
   const ChristianChannel({
@@ -47,10 +50,12 @@ class ChannelVideosResult {
 }
 
 class ChristianVideoRepository {
-  ChristianVideoRepository({http.Client? client})
-    : _client = client ?? http.Client();
+  ChristianVideoRepository({http.Client? client, FirebaseFunctions? functions})
+    : _client = client ?? http.Client(),
+      _functions = functions ?? FirebaseService.functions;
 
   final http.Client _client;
+  final FirebaseFunctions _functions;
 
   static const channels = <ChristianChannel>[
     ChristianChannel(
@@ -101,11 +106,31 @@ class ChristianVideoRepository {
   ];
 
   Future<List<ChannelVideosResult>> fetchAll({int limit = 3}) async {
+    final remote = await _fetchFromCloud(limit: limit);
+    if (remote.isNotEmpty && remote.any((item) => item.hasVideos)) {
+      return remote;
+    }
+
     final result = <ChannelVideosResult>[];
     for (final channel in channels) {
       result.add(await fetchChannel(channel, limit: limit));
     }
     return result;
+  }
+
+  Future<List<ChannelVideosResult>> _fetchFromCloud({int limit = 3}) async {
+    try {
+      final callable = _functions.httpsCallable('fetchChristianVideos');
+      final response = await callable.call(<String, dynamic>{'limit': limit});
+      final data = response.data as Map?;
+      final items = (data?['channels'] as List?) ?? const [];
+      return items
+          .whereType<Map>()
+          .map((raw) => _fromCloudItem(Map<String, dynamic>.from(raw), limit))
+          .toList(growable: false);
+    } catch (_) {
+      return const <ChannelVideosResult>[];
+    }
   }
 
   Future<ChannelVideosResult> fetchChannel(
@@ -171,5 +196,41 @@ class ChristianVideoRepository {
         .replaceAll('&apos;', "'")
         .replaceAll('&lt;', '<')
         .replaceAll('&gt;', '>');
+  }
+
+  ChannelVideosResult _fromCloudItem(Map<String, dynamic> raw, int limit) {
+    final channelId = (raw['channelId'] as String?)?.trim() ?? '';
+    final fallbackChannel = channels.firstWhere(
+      (item) => item.channelId == channelId,
+      orElse: () => ChristianChannel(
+        name: (raw['channelName'] as String?)?.trim() ?? 'Canal cristão',
+        url: (raw['channelUrl'] as String?)?.trim() ?? '',
+        channelId: channelId,
+      ),
+    );
+    final videos = ((raw['videos'] as List?) ?? const [])
+        .whereType<Map>()
+        .take(limit)
+        .map((video) {
+          final parsed = Map<String, dynamic>.from(video);
+          return ChristianVideo(
+            channel: fallbackChannel,
+            videoId: (parsed['videoId'] as String?)?.trim() ?? '',
+            title: (parsed['title'] as String?)?.trim() ?? 'Vídeo',
+            publishedAt:
+                DateTime.tryParse(
+                  (parsed['publishedAt'] as String?)?.trim() ?? '',
+                ) ??
+                DateTime.now(),
+          );
+        })
+        .where((video) => video.videoId.isNotEmpty)
+        .toList(growable: false);
+
+    return ChannelVideosResult(
+      channel: fallbackChannel,
+      videos: videos,
+      errorMessage: (raw['errorMessage'] as String?)?.trim(),
+    );
   }
 }

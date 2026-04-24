@@ -53,6 +53,15 @@ class _FastingPageState extends ConsumerState<FastingPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Jejum registrado com sucesso.')),
       );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Não conseguimos registrar seu jejum agora. Tente novamente em instantes.',
+          ),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _submitting = false);

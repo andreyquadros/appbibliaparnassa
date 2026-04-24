@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 
 import '../../../models/prayer_entry.dart';
 
@@ -10,6 +11,18 @@ class PrayerRepository {
 
   CollectionReference<Map<String, dynamic>> _collection(String userId) {
     return _firestore.collection('users').doc(userId).collection('prayers');
+  }
+
+  DocumentReference<Map<String, dynamic>> _dailyPrayerRef(
+    String userId,
+    DateTime date,
+  ) {
+    final dateKey = DateFormat('yyyy-MM-dd').format(date);
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('prayerLogs')
+        .doc(dateKey);
   }
 
   Stream<List<PrayerEntry>> watchEntries(String userId) {
@@ -49,6 +62,15 @@ class PrayerRepository {
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  Future<void> markToday({required String userId}) async {
+    await _dailyPrayerRef(userId, DateTime.now()).set(<String, dynamic>{
+      'date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+      'markedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+      'title': 'Orei hoje',
+    }, SetOptions(merge: true));
   }
 
   Future<void> markAnswered({

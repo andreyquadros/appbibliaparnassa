@@ -27,6 +27,11 @@ class FastingActions {
       purpose: purpose,
       verse: verse,
     );
+    final progress = ref.read(progressControllerProvider);
+    if (!progress.didFastToday()) {
+      progress.grantAction(GamificationAction.registerFast);
+    }
+    progress.markFastDone();
   }
 
   Future<void> completeFast({

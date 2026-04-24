@@ -10,6 +10,7 @@ import 'package:palavra_viva/core/services/bible_api_service.dart';
 import 'package:palavra_viva/core/services/local_cache_service.dart';
 import 'package:palavra_viva/features/bible/data/bible_books.dart';
 import 'package:palavra_viva/features/bible/data/bible_library_repository.dart';
+import 'package:palavra_viva/features/study/data/study_repository.dart';
 import 'package:palavra_viva/models/bible_passage.dart';
 import 'package:palavra_viva/shared/widgets/main_bottom_nav_bar.dart';
 import 'package:palavra_viva/shared/widgets/pv_scaffold.dart';
@@ -52,6 +53,7 @@ class _BiblePageState extends State<BiblePage> {
   final BibleApiService _bibleApiService = BibleApiService();
   final BibleLibraryRepository _libraryRepository = BibleLibraryRepository();
   final AiService _aiService = AiService();
+  final StudyRepository _studyRepository = StudyRepository();
 
   BiblePassage? _passage;
   String? _errorText;
@@ -63,6 +65,7 @@ class _BiblePageState extends State<BiblePage> {
   int _selectedChapter = _defaultChapter;
   List<BibleLibraryEntry> _favorites = const <BibleLibraryEntry>[];
   List<BibleLibraryEntry> _history = const <BibleLibraryEntry>[];
+  bool _hasSavedReadingLocation = false;
 
   BibleBookDefinition get _selectedBook => bibleBookById(_selectedBookId);
 
@@ -77,6 +80,9 @@ class _BiblePageState extends State<BiblePage> {
 
   Future<void> _bootstrap() async {
     await _syncLibraryFromRemote();
+    if (!_hasSavedReadingLocation) {
+      await _applyDailyStudyDefault();
+    }
     await _loadCurrentSelection();
   }
 
@@ -95,6 +101,8 @@ class _BiblePageState extends State<BiblePage> {
     final preferredTranslation = translation != null && translation.isNotEmpty
         ? translation
         : _defaultTranslation;
+    final hasSavedLocation =
+        bookId != null && bookId.isNotEmpty && chapterRaw != null;
 
     setState(() {
       _selectedTranslation = preferredTranslation;
@@ -110,7 +118,22 @@ class _BiblePageState extends State<BiblePage> {
         box.get(_historyKey),
         fallbackTranslation: preferredTranslation,
       );
+      _hasSavedReadingLocation = hasSavedLocation;
     });
+  }
+
+  Future<void> _applyDailyStudyDefault() async {
+    try {
+      final todayStudy = await _studyRepository.fetchTodayStudy();
+      final parsed = _parseReference(todayStudy.passage);
+      if (parsed == null) {
+        return;
+      }
+      _selectedBookId = parsed.$1;
+      _selectedChapter = parsed.$2;
+    } catch (_) {
+      // Mantemos o fallback padrão da página quando não houver estudo disponível.
+    }
   }
 
   Future<void> _syncLibraryFromRemote() async {
@@ -890,6 +913,52 @@ class _BiblePageState extends State<BiblePage> {
     final items = merged.values.toList(growable: false)
       ..sort((a, b) => b.updatedAtMillis.compareTo(a.updatedAtMillis));
     return items.take(limit).toList(growable: false);
+  }
+
+  (String, int)? _parseReference(String reference) {
+    final match = RegExp(r'^(.+?)\s+(\d+)(?::.*)?$').firstMatch(reference.trim());
+    if (match == null) {
+      return null;
+    }
+
+    final bookName = _normalizeBookName(match.group(1) ?? '');
+    final chapter = int.tryParse(match.group(2) ?? '');
+    if (chapter == null || chapter <= 0) {
+      return null;
+    }
+
+    for (final book in bibleBooks) {
+      final display = _normalizeBookName(book.displayName);
+      final query = _normalizeBookName(book.queryName);
+      if (bookName == display || bookName == query) {
+        return (book.id, chapter.clamp(1, book.chapters));
+      }
+    }
+
+    return null;
+  }
+
+  String _normalizeBookName(String input) {
+    const accents = <String, String>{
+      'á': 'a',
+      'à': 'a',
+      'â': 'a',
+      'ã': 'a',
+      'é': 'e',
+      'ê': 'e',
+      'í': 'i',
+      'ó': 'o',
+      'ô': 'o',
+      'õ': 'o',
+      'ú': 'u',
+      'ç': 'c',
+    };
+
+    var normalized = input.trim().toLowerCase();
+    accents.forEach((accent, plain) {
+      normalized = normalized.replaceAll(accent, plain);
+    });
+    return normalized.replaceAll(RegExp(r'[^a-z0-9]+'), '');
   }
 }
 

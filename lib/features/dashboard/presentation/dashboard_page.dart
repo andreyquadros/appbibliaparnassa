@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'package:palavra_viva/core/constants/app_colors.dart';
-import 'package:palavra_viva/core/constants/app_strings.dart';
 import 'package:palavra_viva/core/services/bible_api_service.dart';
 import 'package:palavra_viva/shared/branding/palavra_viva_logo.dart';
 import 'package:palavra_viva/shared/widgets/main_bottom_nav_bar.dart';
@@ -33,6 +33,8 @@ class DashboardPage extends StatefulWidget {
     this.onOpenRewards,
     this.onOpenNotifications,
     this.onOpenProfile,
+    this.onSaveDailyWord,
+    this.onShareDailyWord,
   });
 
   final String userName;
@@ -56,6 +58,8 @@ class DashboardPage extends StatefulWidget {
   final VoidCallback? onOpenRewards;
   final VoidCallback? onOpenNotifications;
   final VoidCallback? onOpenProfile;
+  final Future<String> Function()? onSaveDailyWord;
+  final VoidCallback? onShareDailyWord;
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -64,6 +68,34 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   final BibleApiService _bibleApiService = BibleApiService();
   late Future<String> _verseFuture;
+
+  Future<void> _handleSaveDailyWord() async {
+    final callback = widget.onSaveDailyWord;
+    final messenger = ScaffoldMessenger.of(context);
+    if (callback == null) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Faça login para salvar a palavra do dia.'),
+        ),
+      );
+      return;
+    }
+
+    final message = await callback();
+    if (!mounted) return;
+    messenger.showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _handleShareDailyWord() {
+    if (widget.onShareDailyWord != null) {
+      widget.onShareDailyWord!();
+      return;
+    }
+    Share.share(
+      '${widget.dailyReference}\n\n${widget.dailyVerse}',
+      subject: 'Palavra do dia',
+    );
+  }
 
   @override
   void initState() {
@@ -108,7 +140,7 @@ class _DashboardPageState extends State<DashboardPage> {
     final readingDay = widget.studyStreak <= 0 ? 1 : widget.studyStreak;
 
     return PvScaffold(
-      title: AppStrings.appName,
+      title: '',
       actions: [
         IconButton(
           onPressed: widget.onOpenNotifications,
@@ -131,12 +163,20 @@ class _DashboardPageState extends State<DashboardPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const PalavraVivaLogo(showTitle: false, size: 68),
+              const PalavraVivaLogo(showTitle: false, size: 82),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Text(
+                      'Parnassá',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: AppColors.secondary,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
                     Text(
                       'Que a paz esteja contigo,',
                       style: Theme.of(context).textTheme.bodyLarge,
@@ -144,7 +184,9 @@ class _DashboardPageState extends State<DashboardPage> {
                     const SizedBox(height: 2),
                     Text(
                       widget.userName,
-                      style: Theme.of(context).textTheme.headlineLarge,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ],
                 ),
@@ -260,12 +302,12 @@ class _DashboardPageState extends State<DashboardPage> {
                         ),
                       ),
                       IconButton(
-                        onPressed: widget.onOpenFlashcards,
+                        onPressed: _handleSaveDailyWord,
                         color: Colors.white,
                         icon: const Icon(Icons.bookmark_border),
                       ),
                       IconButton(
-                        onPressed: widget.onOpenQuiz,
+                        onPressed: _handleShareDailyWord,
                         color: Colors.white,
                         icon: const Icon(Icons.share_outlined),
                       ),

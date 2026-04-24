@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:palavra_viva/core/constants/app_colors.dart';
 import 'package:palavra_viva/shared/branding/palavra_viva_logo.dart';
@@ -7,7 +8,10 @@ import 'package:palavra_viva/shared/widgets/manadas_balance_chip.dart';
 import 'package:palavra_viva/shared/widgets/pv_scaffold.dart';
 import 'package:palavra_viva/shared/widgets/xp_progress_card.dart';
 
-class ProfilePage extends StatefulWidget {
+import '../../auth/application/auth_controller.dart';
+import '../application/profile_controller.dart';
+
+class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({
     super.key,
     this.name = 'Discípulo',
@@ -20,6 +24,7 @@ class ProfilePage extends StatefulWidget {
     this.prayerStreak = 0,
     this.fastingStreak = 0,
     this.onLogout,
+    this.onOpenSavedItems,
   });
 
   final String name;
@@ -32,18 +37,87 @@ class ProfilePage extends StatefulWidget {
   final int prayerStreak;
   final int fastingStreak;
   final VoidCallback? onLogout;
+  final VoidCallback? onOpenSavedItems;
 
   @override
-  State<ProfilePage> createState() => _ProfilePageState();
+  ConsumerState<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
+class _ProfilePageState extends ConsumerState<ProfilePage> {
   bool _notifications = true;
+
+  Future<void> _openEditProfile() async {
+    final authState = ref.read(authControllerProvider);
+    final currentUser = authState.user;
+    if (currentUser == null) {
+      return;
+    }
+
+    final nameController = TextEditingController(text: currentUser.name);
+    final denominationController = TextEditingController(
+      text: currentUser.denomination,
+    );
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Editar perfil'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: 'Nome'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: denominationController,
+              decoration: const InputDecoration(labelText: 'Denominação'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final nextName = nameController.text.trim();
+              final nextDenomination = denominationController.text.trim();
+              if (nextName.isEmpty) {
+                return;
+              }
+              ref
+                  .read(authControllerProvider.notifier)
+                  .updateUser(
+                    currentUser.copyWith(
+                      name: nextName,
+                      denomination: nextDenomination.isEmpty
+                          ? currentUser.denomination
+                          : nextDenomination,
+                    ),
+                  );
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Perfil atualizado com sucesso.')),
+              );
+            },
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+
+    nameController.dispose();
+    denominationController.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final totalStreak =
         widget.studyStreak + widget.prayerStreak + widget.fastingStreak;
+    final savedItemsAsync = ref.watch(savedItemsProvider);
 
     return PvScaffold(
       title: 'Perfil',
@@ -147,6 +221,89 @@ class _ProfilePageState extends State<ProfilePage> {
             fastingDays: widget.fastingStreak,
           ),
           const SizedBox(height: 14),
+          savedItemsAsync.when(
+            data: (items) => Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Itens salvos',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: widget.onOpenSavedItems,
+                          child: const Text('Ver todos'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (items.isEmpty)
+                      const Text(
+                        'Suas palavras e estudos salvos vão aparecer aqui.',
+                      )
+                    else
+                      ...items.take(2).map(
+                        (item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceTint,
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.title,
+                                  style: Theme.of(context).textTheme.titleMedium,
+                                ),
+                                if (item.reference.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    item.reference,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelLarge
+                                        ?.copyWith(color: AppColors.secondary),
+                                  ),
+                                ],
+                                const SizedBox(height: 6),
+                                Text(
+                                  item.excerpt,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            loading: () => const Card(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ),
+            error: (error, _) => Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('Não foi possível carregar seus salvos: $error'),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
           Card(
             child: SwitchListTile.adaptive(
               value: _notifications,
@@ -158,16 +315,18 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           const SizedBox(height: 10),
-          const _ProfileActionTile(
+          _ProfileActionTile(
             icon: Icons.edit_outlined,
             title: 'Editar perfil',
-            subtitle: 'Nome, foto, preferências e organização da jornada',
+            subtitle: 'Atualize nome e informações básicas da sua jornada',
+            onTap: _openEditProfile,
           ),
           const SizedBox(height: 10),
-          const _ProfileActionTile(
-            icon: Icons.palette_outlined,
-            title: 'Aparência',
-            subtitle: 'Tema claro editorial com leitura confortável',
+          _ProfileActionTile(
+            icon: Icons.bookmark_outline_rounded,
+            title: 'Itens salvos',
+            subtitle: 'Veja palavras, versículos e estudos que você guardou',
+            onTap: widget.onOpenSavedItems,
           ),
           const SizedBox(height: 10),
           _ProfileActionTile(

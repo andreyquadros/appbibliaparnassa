@@ -60,6 +60,12 @@ class _VideosPageState extends State<VideosPage> {
           final featured =
               results.expand((item) => item.videos).toList(growable: false)
                 ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
+          final featuredDaily = featured.isEmpty
+              ? null
+              : featured[
+                  DateTime.now().difference(DateTime(2026, 1, 1)).inDays %
+                      featured.length
+                ];
 
           return ListView(
             children: [
@@ -90,7 +96,7 @@ class _VideosPageState extends State<VideosPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              if (kIsWeb)
+              if (kIsWeb && featuredDaily == null)
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -110,24 +116,20 @@ class _VideosPageState extends State<VideosPage> {
                     ),
                   ),
                 ),
-              if (kIsWeb) const SizedBox(height: 12),
-              if (featured.isNotEmpty) ...[
+              if (kIsWeb && featuredDaily == null) const SizedBox(height: 12),
+              if (featuredDaily != null) ...[
                 Text(
-                  'Recentes em destaque',
+                  'Vídeo em destaque de hoje',
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 10),
-                ...featured
-                    .take(6)
-                    .map(
-                      (video) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _FeaturedVideoCard(
-                          video: video,
-                          onTap: () => _openUrl(video.watchUrl),
-                        ),
-                      ),
-                    ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _FeaturedVideoCard(
+                    video: featuredDaily,
+                    onTap: () => _openUrl(featuredDaily.watchUrl),
+                  ),
+                ),
                 const SizedBox(height: 20),
               ],
               Text(

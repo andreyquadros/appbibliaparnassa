@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../features/activities/presentation/quiz_page.dart';
 import '../../features/auth/application/auth_controller.dart';
@@ -14,7 +15,9 @@ import '../../features/fasting/presentation/fasting_page.dart';
 import '../../features/flashcards/presentation/flashcards_page.dart';
 import '../../features/notifications/presentation/notifications_page.dart';
 import '../../features/prayer/presentation/prayer_page.dart';
+import '../../features/profile/application/profile_controller.dart';
 import '../../features/profile/presentation/profile_page.dart';
+import '../../features/profile/presentation/saved_items_page.dart';
 import '../../features/ranking/presentation/ranking_page.dart';
 import '../../features/rewards/presentation/rewards_page.dart';
 import '../../features/study/application/study_controller.dart';
@@ -195,6 +198,34 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 onOpenNotifications: () =>
                     context.push(AppRoutes.notifications),
                 onOpenProfile: () => context.push(AppRoutes.profile),
+                onSaveDailyWord: todayStudy == null
+                    ? null
+                    : () async {
+                        final user = routeRef.read(currentUserProvider);
+                        if (user == null) {
+                          return 'Entre na sua conta para salvar palavras.';
+                        }
+                        final added = await routeRef
+                            .read(savedItemsRepositoryProvider)
+                            .saveItem(
+                              userId: user.id,
+                              title: 'Palavra do dia',
+                              reference: todayStudy.passage,
+                              excerpt: todayStudy.memoryVerse,
+                              category: 'palavra_do_dia',
+                            );
+                        return added
+                            ? 'Palavra do dia salva no perfil.'
+                            : 'Essa palavra já estava salva no perfil.';
+                      },
+                onShareDailyWord: todayStudy == null
+                    ? null
+                    : () {
+                        Share.share(
+                          '${todayStudy.passage}\n\n${todayStudy.memoryVerse}',
+                          subject: 'Palavra do dia',
+                        );
+                      },
               );
             },
           ),
@@ -273,6 +304,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               studyStreak: auth.user?.streak.studyStreak ?? 0,
               prayerStreak: auth.user?.streak.prayerStreak ?? 0,
               fastingStreak: auth.user?.streak.fastingStreak ?? 0,
+              onOpenSavedItems: () => context.push(AppRoutes.savedItems),
               onLogout: () {
                 ref.read(authControllerProvider.notifier).logout().then((_) {
                   if (context.mounted) {
@@ -283,6 +315,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           );
         },
+      ),
+      GoRoute(
+        path: AppRoutes.savedItems,
+        pageBuilder: (context, state) =>
+            _buildTransitionPage(state, const SavedItemsPage()),
       ),
       GoRoute(
         path: AppRoutes.notifications,

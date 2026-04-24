@@ -1,7 +1,7 @@
 name: palavra_viva
 description: "App Bíblia Parnassá - Orquestrador gamificado de estudos bíblicos"
 publish_to: "none"
-version: 1.0.2+3
+version: 1.0.3+4
 
 environment:
   sdk: ^3.11.4

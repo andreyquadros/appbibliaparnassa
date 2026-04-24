@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/gamification.dart';
+import '../../auth/application/auth_controller.dart';
 import '../../dashboard/application/progress_controller.dart';
+import '../data/daily_quiz_repository.dart';
 
 class QuizState {
   const QuizState({this.score = 0, this.combo = 0, this.questionsAnswered = 0});
@@ -54,3 +56,18 @@ final quizControllerProvider = StateNotifierProvider<QuizController, QuizState>(
     return QuizController(ref);
   },
 );
+
+final dailyQuizRepositoryProvider = Provider<DailyQuizRepository>((ref) {
+  return DailyQuizRepository();
+});
+
+final dailyQuizProgressProvider =
+    StreamProvider.family<DailyQuizProgress?, String>((ref, dateId) {
+      final user = ref.watch(currentUserProvider);
+      if (user == null) {
+        return Stream.value(null);
+      }
+      return ref
+          .watch(dailyQuizRepositoryProvider)
+          .watchProgress(user.id, dateId);
+    });

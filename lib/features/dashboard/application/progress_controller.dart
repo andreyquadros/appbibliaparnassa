@@ -32,41 +32,89 @@ class ProgressController {
   }
 
   void markStudyDone() {
-    _updateStreak(
-      (streak) => streak.copyWith(
-        studyStreak: streak.studyStreak + 1,
-        lastStudyDate: DateTime.now(),
-      ),
-    );
+    _updateStreak((streak) {
+      final next = _nextDailyCount(
+        current: streak.studyStreak,
+        lastDate: streak.lastStudyDate,
+      );
+      return streak.copyWith(studyStreak: next, lastStudyDate: DateTime.now());
+    });
+  }
+
+  bool didStudyToday() {
+    final user = ref.read(currentUserProvider);
+    if (user == null) {
+      return false;
+    }
+    return _isSameDay(user.streak.lastStudyDate, DateTime.now());
   }
 
   void markPrayerDone() {
-    _updateStreak(
-      (streak) => streak.copyWith(
-        prayerStreak: streak.prayerStreak + 1,
+    _updateStreak((streak) {
+      final next = _nextDailyCount(
+        current: streak.prayerStreak,
+        lastDate: streak.lastPrayerDate,
+      );
+      return streak.copyWith(
+        prayerStreak: next,
         lastPrayerDate: DateTime.now(),
-      ),
-    );
+      );
+    });
+  }
+
+  bool didPrayToday() {
+    final user = ref.read(currentUserProvider);
+    if (user == null) {
+      return false;
+    }
+    return _isSameDay(user.streak.lastPrayerDate, DateTime.now());
   }
 
   void markFastDone() {
-    _updateStreak(
-      (streak) => streak.copyWith(
-        fastingStreak: streak.fastingStreak + 1,
+    _updateStreak((streak) {
+      final next = _nextDailyCount(
+        current: streak.fastingStreak,
+        lastDate: streak.lastFastDate,
+      );
+      return streak.copyWith(
+        fastingStreak: next,
         lastFastDate: DateTime.now(),
-      ),
-    );
+      );
+    });
   }
 
-  void spendManadas(int cost) {
+  bool didFastToday() {
     final user = ref.read(currentUserProvider);
-    if (user == null || user.manadas < cost) {
-      return;
+    if (user == null) {
+      return false;
+    }
+    return _isSameDay(user.streak.lastFastDate, DateTime.now());
+  }
+
+  int _nextDailyCount({
+    required int current,
+    required DateTime? lastDate,
+    DateTime? now,
+  }) {
+    final today = now ?? DateTime.now();
+    if (_isSameDay(lastDate, today)) {
+      return current;
     }
 
-    ref
-        .read(authControllerProvider.notifier)
-        .updateUser(user.copyWith(manadas: user.manadas - cost));
+    final yesterday = DateTime(today.year, today.month, today.day - 1);
+    if (_isSameDay(lastDate, yesterday)) {
+      return current + 1;
+    }
+
+    return 1;
+  }
+
+  bool _isSameDay(DateTime? a, DateTime? b) {
+    if (a == null || b == null) {
+      return false;
+    }
+
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   void _updateStreak(StreakState Function(StreakState streak) transform) {
@@ -78,6 +126,17 @@ class ProgressController {
     ref
         .read(authControllerProvider.notifier)
         .updateUser(user.copyWith(streak: transform(user.streak)));
+  }
+
+  void spendManadas(int cost) {
+    final user = ref.read(currentUserProvider);
+    if (user == null || user.manadas < cost) {
+      return;
+    }
+
+    ref
+        .read(authControllerProvider.notifier)
+        .updateUser(user.copyWith(manadas: user.manadas - cost));
   }
 }
 

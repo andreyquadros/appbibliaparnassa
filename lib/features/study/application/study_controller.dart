@@ -50,11 +50,11 @@ class StudyController extends StateNotifier<AsyncValue<DailyStudy>> {
   }
 
   void completeTodayStudy() {
-    ref
-      ..read(
-        progressControllerProvider,
-      ).grantAction(GamificationAction.completeDailyStudy)
-      ..read(progressControllerProvider).markStudyDone();
+    final progress = ref.read(progressControllerProvider);
+    if (!progress.didStudyToday()) {
+      progress.grantAction(GamificationAction.completeDailyStudy);
+    }
+    progress.markStudyDone();
   }
 
   @override

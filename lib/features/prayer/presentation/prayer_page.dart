@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_routes.dart';
 import '../../../features/fasting/application/fasting_controller.dart';
+import '../../auth/application/auth_controller.dart';
 import '../../../models/fast_entry.dart';
 import '../../../models/prayer_entry.dart';
 import '../../../shared/widgets/main_bottom_nav_bar.dart';
@@ -25,7 +26,7 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
   Future<void> _openAddDialog() async {
     final titleController = TextEditingController();
     final contentController = TextEditingController();
-    final verseController = TextEditingController(text: 'Filipenses 4:6');
+    final verseController = TextEditingController();
     final dialogTheme = Theme.of(context).copyWith(
       dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF262C39)),
       inputDecorationTheme: const InputDecorationTheme(
@@ -98,10 +99,11 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
             FilledButton(
               onPressed: () async {
                 final navigator = Navigator.of(context);
+                final messenger = ScaffoldMessenger.of(context);
                 final title = titleController.text.trim();
                 final verse = verseController.text.trim();
                 final content = contentController.text.trim();
-                if (title.isEmpty || verse.isEmpty || content.isEmpty) {
+                if (title.isEmpty || content.isEmpty) {
                   return;
                 }
 
@@ -109,9 +111,27 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
                 try {
                   await ref
                       .read(prayerActionsProvider)
-                      .addPrayer(title: title, content: content, verse: verse);
+                      .addPrayer(
+                        title: title,
+                        content: content,
+                        verse: verse.isEmpty ? 'Sem versículo informado' : verse,
+                      );
                   if (!mounted) return;
                   navigator.pop();
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('Pedido de oração salvo com carinho.'),
+                    ),
+                  );
+                } catch (_) {
+                  if (!mounted) return;
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Não conseguimos salvar seu pedido agora. Tente novamente em instantes.',
+                      ),
+                    ),
+                  );
                 } finally {
                   if (mounted) {
                     setState(() => _submitting = false);
@@ -134,7 +154,11 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
   Widget build(BuildContext context) {
     final prayersAsync = ref.watch(prayerEntriesProvider);
     final fastsAsync = ref.watch(fastingEntriesProvider);
+    final user = ref.watch(currentUserProvider);
     final showBack = Navigator.of(context).canPop();
+    final lastPrayerDate = user?.streak.lastPrayerDate;
+    final prayedToday = lastPrayerDate != null &&
+        _isSameDay(lastPrayerDate, DateTime.now());
 
     return PvScaffold(
       title: 'Diário Espiritual',
@@ -198,16 +222,65 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
           ),
           const SizedBox(height: 20),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Pedidos de Oração',
-                style: Theme.of(context).textTheme.headlineSmall,
+              Expanded(
+                child: Text(
+                  'Pedidos de Oração',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
               ),
-              const Spacer(),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
               FilledButton.tonalIcon(
                 onPressed: _submitting ? null : _openAddDialog,
                 icon: const Icon(Icons.add),
                 label: const Text('Nova Oração'),
+              ),
+              OutlinedButton.icon(
+                onPressed: prayedToday || _submitting
+                    ? null
+                    : () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        try {
+                          setState(() => _submitting = true);
+                          await ref
+                              .read(prayerActionsProvider)
+                              .markPrayerToday();
+                          if (!mounted) return;
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Oração de hoje marcada.'),
+                            ),
+                          );
+                        } catch (_) {
+                          if (!mounted) return;
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Não conseguimos marcar sua oração agora.',
+                              ),
+                            ),
+                          );
+                        } finally {
+                          if (mounted) {
+                            setState(() => _submitting = false);
+                          }
+                        }
+                      },
+                icon: Icon(
+                  prayedToday
+                      ? Icons.check_circle_rounded
+                      : Icons.favorite_outline_rounded,
+                ),
+                label: Text(
+                  prayedToday ? 'Você já orou hoje' : 'Marcar que orei hoje',
+                ),
               ),
             ],
           ),
@@ -253,6 +326,10 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
         ],
       ),
     );
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 }
 

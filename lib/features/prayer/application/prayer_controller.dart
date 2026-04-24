@@ -27,11 +27,23 @@ class PrayerActions {
       verse: verse,
     );
 
-    ref
-      ..read(
-        progressControllerProvider,
-      ).grantAction(GamificationAction.registerPrayer)
-      ..read(progressControllerProvider).markPrayerDone();
+    final progress = ref.read(progressControllerProvider);
+    if (!progress.didPrayToday()) {
+      progress.grantAction(GamificationAction.registerPrayer);
+    }
+    progress.markPrayerDone();
+  }
+
+  Future<void> markPrayerToday() async {
+    final user = ref.read(currentUserProvider);
+    if (user == null) return;
+
+    await _repository.markToday(userId: user.id);
+    final progress = ref.read(progressControllerProvider);
+    if (!progress.didPrayToday()) {
+      progress.grantAction(GamificationAction.registerPrayer);
+    }
+    progress.markPrayerDone();
   }
 
   Future<void> markAnswered(String prayerId) async {

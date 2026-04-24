@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:palavra_viva/core/constants/app_colors.dart';
+import 'package:palavra_viva/features/auth/application/auth_controller.dart';
 import 'package:palavra_viva/shared/widgets/pv_scaffold.dart';
 
 import '../../study/application/study_controller.dart';
@@ -18,30 +19,43 @@ class _QuizPageState extends ConsumerState<QuizPage> {
   int _questionIndex = 0;
   int? _selectedIndex;
   bool _finished = false;
+  bool _persistingCompletion = false;
   String? _activeStudyDateId;
 
-  void _confirmAnswer(int totalQuestions, int correctIndex) {
+  Future<void> _confirmAnswer(
+    int totalQuestions,
+    int correctIndex,
+    String dateId,
+  ) async {
     if (_selectedIndex == null) return;
 
     final isCorrect = _selectedIndex == correctIndex;
     ref.read(quizControllerProvider.notifier).answer(correct: isCorrect);
 
     if (_questionIndex == totalQuestions - 1) {
-      setState(() => _finished = true);
+      setState(() {
+        _finished = true;
+        _persistingCompletion = true;
+      });
+      final quizState = ref.read(quizControllerProvider);
+      final user = ref.read(currentUserProvider);
+      if (user != null) {
+        await ref
+            .read(dailyQuizRepositoryProvider)
+            .complete(
+              userId: user.id,
+              dateId: dateId,
+              score: quizState.score,
+              questionsAnswered: quizState.questionsAnswered,
+            );
+      }
+      if (!mounted) return;
+      setState(() => _persistingCompletion = false);
       return;
     }
     setState(() {
       _questionIndex++;
       _selectedIndex = null;
-    });
-  }
-
-  void _restart() {
-    ref.read(quizControllerProvider.notifier).reset();
-    setState(() {
-      _questionIndex = 0;
-      _selectedIndex = null;
-      _finished = false;
     });
   }
 
@@ -55,6 +69,7 @@ class _QuizPageState extends ConsumerState<QuizPage> {
         _questionIndex = 0;
         _selectedIndex = null;
         _finished = false;
+        _persistingCompletion = false;
       });
     });
   }
@@ -71,6 +86,7 @@ class _QuizPageState extends ConsumerState<QuizPage> {
         child: studyAsync.when(
           data: (study) {
             _resetForStudyIfNeeded(study.dateId);
+            final progressAsync = ref.watch(dailyQuizProgressProvider(study.dateId));
             final questions = study.quiz;
             if (questions.isEmpty) {
               return const Center(
@@ -79,6 +95,55 @@ class _QuizPageState extends ConsumerState<QuizPage> {
                     padding: EdgeInsets.all(18),
                     child: Text(
                       'O estudo de hoje ainda não possui quiz. Gere um estudo primeiro.',
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            final dailyProgress = progressAsync.asData?.value;
+            if (dailyProgress?.completed == true) {
+              return Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 430),
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(28),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 74,
+                            height: 74,
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceTint,
+                              borderRadius: BorderRadius.circular(22),
+                            ),
+                            child: const Icon(
+                              Icons.check_circle_outline_rounded,
+                              size: 38,
+                              color: AppColors.secondary,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Quiz de hoje já concluído',
+                            style: Theme.of(context).textTheme.headlineSmall,
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Você já respondeu às 5 perguntas de hoje. Amanhã entra um novo quiz alinhado ao próximo estudo.',
+                            style: Theme.of(context).textTheme.bodyLarge,
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 14),
+                          Text(
+                            'Pontuação de hoje: ${dailyProgress!.score}',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -119,13 +184,15 @@ class _QuizPageState extends ConsumerState<QuizPage> {
                             'Pontuação acumulada: ${quizState.score}',
                             style: Theme.of(context).textTheme.bodyLarge,
                           ),
+                          if (_persistingCompletion) ...[
+                            const SizedBox(height: 14),
+                            const CircularProgressIndicator(),
+                          ],
                           const SizedBox(height: 18),
-                          SizedBox(
-                            width: double.infinity,
-                            child: FilledButton(
-                              onPressed: _restart,
-                              child: const Text('Refazer quiz'),
-                            ),
+                          Text(
+                            'Esse quiz fica disponível apenas uma vez por dia.',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                            textAlign: TextAlign.center,
                           ),
                         ],
                       ),
@@ -196,6 +263,7 @@ class _QuizPageState extends ConsumerState<QuizPage> {
                       : () => _confirmAnswer(
                           questions.length,
                           question.correctIndex,
+                          study.dateId,
                         ),
                   child: Text(
                     safeQuestionIndex == questions.length - 1

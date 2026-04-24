@@ -44,7 +44,7 @@ class FirebaseService {
 
     const useEmulators = bool.fromEnvironment(
       'USE_FIREBASE_EMULATORS',
-      defaultValue: true,
+      defaultValue: false,
     );
     if (!useEmulators) {
       return;
