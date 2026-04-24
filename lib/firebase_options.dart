@@ -38,7 +38,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyDPi0KXsE6KZZwwJTaDKhfcXgW_VrVq75k',
-    appId: '1:650786366043:android:8c00a75f15b4a4c189957e',
+    appId: '1:650786366043:android:44615d3ea073a01189957e',
     messagingSenderId: '650786366043',
     projectId: 'palavraviva-app-2026',
     storageBucket: 'palavraviva-app-2026.firebasestorage.app',
