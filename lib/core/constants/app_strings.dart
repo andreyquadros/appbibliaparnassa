@@ -1,7 +1,7 @@
 class AppStrings {
   const AppStrings._();
 
-  static const appName = 'App Bíblia Parnassá';
+  static const appName = 'Parnassá';
   static const currencyName = 'parnassas';
   static const currencySymbol = 'parnassas';
 

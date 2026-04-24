@@ -1,7 +1,7 @@
 name: palavra_viva
 description: "App Bíblia Parnassá - Orquestrador gamificado de estudos bíblicos"
 publish_to: "none"
-version: 1.0.1+2
+version: 1.0.2+3
 
 environment:
   sdk: ^3.11.4
@@ -20,6 +20,7 @@ dependencies:
   cloud_functions: ^5.0.0
   firebase_analytics: ^11.0.0
   firebase_crashlytics: ^4.0.0
+  google_sign_in: ^6.2.1
 
   # State Management
   flutter_riverpod: ^2.5.0

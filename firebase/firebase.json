@@ -33,7 +33,7 @@
     "providers": {
       "emailPassword": true,
       "googleSignIn": {
-        "oAuthBrandDisplayName": "App Bíblia Parnassá",
+        "oAuthBrandDisplayName": "Parnassá",
         "supportEmail": "andreyalencarquadros@gmail.com"
       }
     }

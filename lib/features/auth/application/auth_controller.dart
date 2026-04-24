@@ -2,9 +2,12 @@ import 'dart:async';
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../core/services/firebase_service.dart';
+import '../../../core/services/local_cache_service.dart';
 import '../../../core/services/user_profile_repository.dart';
 import '../../../models/app_user.dart';
 
@@ -50,7 +53,13 @@ class AuthController extends StateNotifier<AuthState> {
   }) : _auth = auth ?? FirebaseAuth.instance,
        _profiles = profiles ?? UserProfileRepository(),
        _functions = functions ?? FirebaseService.functions,
-       super(const AuthState()) {
+       super(
+         AuthState(
+           isAuthenticated: (auth ?? FirebaseAuth.instance).currentUser != null,
+           onboardingCompleted: LocalCacheService.onboardingCompleted,
+           user: _fromFirebaseUser((auth ?? FirebaseAuth.instance).currentUser),
+         ),
+       ) {
     _authSubscription = _auth.authStateChanges().listen(_onAuthUserChanged);
   }
 
@@ -62,6 +71,7 @@ class AuthController extends StateNotifier<AuthState> {
   bool _seedAttempted = false;
 
   Future<void> completeOnboarding() async {
+    await LocalCacheService.setOnboardingCompleted();
     state = state.copyWith(onboardingCompleted: true);
   }
 
@@ -72,6 +82,7 @@ class AuthController extends StateNotifier<AuthState> {
     state = state.copyWith(loading: true, clearError: true);
     try {
       await _auth.signInWithEmailAndPassword(email: email, password: password);
+      await completeOnboarding();
     } on FirebaseAuthException catch (e) {
       state = state.copyWith(
         loading: false,
@@ -91,10 +102,49 @@ class AuthController extends StateNotifier<AuthState> {
         email: email,
         password: password,
       );
+      await completeOnboarding();
     } on FirebaseAuthException catch (e) {
       state = state.copyWith(
         loading: false,
         errorMessage: _messageForAuthError(e),
+      );
+      rethrow;
+    }
+  }
+
+  Future<bool> signInWithGoogle() async {
+    state = state.copyWith(loading: true, clearError: true);
+    try {
+      if (kIsWeb) {
+        final provider = GoogleAuthProvider()..addScope('email');
+        await _auth.signInWithPopup(provider);
+      } else {
+        final googleUser = await GoogleSignIn().signIn();
+        if (googleUser == null) {
+          state = state.copyWith(loading: false, clearError: true);
+          return false;
+        }
+
+        final googleAuth = await googleUser.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        await _auth.signInWithCredential(credential);
+      }
+
+      await completeOnboarding();
+      return true;
+    } on FirebaseAuthException catch (e) {
+      state = state.copyWith(
+        loading: false,
+        errorMessage: _messageForAuthError(e),
+      );
+      rethrow;
+    } catch (e) {
+      state = state.copyWith(
+        loading: false,
+        errorMessage: 'Não foi possível entrar com Google agora.',
       );
       rethrow;
     }
@@ -195,6 +245,10 @@ class AuthController extends StateNotifier<AuthState> {
         return 'Senha fraca. Use ao menos 6 caracteres.';
       case 'invalid-email':
         return 'E-mail inválido.';
+      case 'account-exists-with-different-credential':
+        return 'Já existe uma conta com este e-mail usando outro método de acesso.';
+      case 'popup-closed-by-user':
+        return 'Entrada com Google cancelada.';
       default:
         return e.message ?? 'Falha de autenticação.';
     }

@@ -9,6 +9,7 @@ class OnboardingStepData {
     required this.description,
     required this.icon,
     required this.imagePath,
+    required this.footer,
     this.imageAlignment = Alignment.center,
   });
 
@@ -16,6 +17,7 @@ class OnboardingStepData {
   final String description;
   final IconData icon;
   final String imagePath;
+  final String footer;
   final Alignment imageAlignment;
 }
 
@@ -29,6 +31,8 @@ class OnboardingPage extends StatefulWidget {
             'Construa hábitos espirituais consistentes com leitura, meditação e revisão.',
         icon: Icons.waving_hand_outlined,
         imagePath: 'assets/branding/onboard1.png',
+        footer:
+            'O Parnassá foi pensado para uma vida devocional prática, bonita e perseverante.',
         imageAlignment: Alignment.topCenter,
       ),
       OnboardingStepData(
@@ -37,6 +41,8 @@ class OnboardingPage extends StatefulWidget {
             'Leia a Bíblia, receba contexto, explicações e converse com o texto.',
         icon: Icons.menu_book_outlined,
         imagePath: 'assets/branding/onboard2.png',
+        footer:
+            'Receba contexto bíblico com clareza para estudar além da superfície.',
         imageAlignment: Alignment.center,
       ),
       OnboardingStepData(
@@ -45,6 +51,8 @@ class OnboardingPage extends StatefulWidget {
             'Guarde versículos com flashcards e revisões para lembrar no tempo certo.',
         icon: Icons.style_outlined,
         imagePath: 'assets/branding/onboard3.png',
+        footer:
+            'Revise no ritmo certo e transforme leitura em lembrança duradoura.',
         imageAlignment: Alignment.centerRight,
       ),
       OnboardingStepData(
@@ -53,6 +61,8 @@ class OnboardingPage extends StatefulWidget {
             'Acompanhe oração, jejum e pequenas metas que fortalecem a constância.',
         icon: Icons.self_improvement_outlined,
         imagePath: 'assets/branding/onboard4.png',
+        footer:
+            'Pequenos compromissos diários constroem profundidade e perseverança.',
         imageAlignment: Alignment.centerRight,
       ),
       OnboardingStepData(
@@ -61,6 +71,8 @@ class OnboardingPage extends StatefulWidget {
             'Partilhe com a comunidade, avance em ritmo saudável e celebre sua evolução.',
         icon: Icons.groups_outlined,
         imagePath: 'assets/branding/onboard5.png',
+        footer:
+            'Cresça com companhia, encorajamento e passos reais de maturidade.',
         imageAlignment: Alignment.center,
       ),
     ],
@@ -276,7 +288,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                                   ),
                                   const SizedBox(height: 12),
                                   Text(
-                                    'O App Bíblia Parnassá foi pensado para uma vida devocional prática, bonita e perseverante.',
+                                    item.footer,
                                     style: Theme.of(context).textTheme.bodySmall
                                         ?.copyWith(
                                           color: AppColors.accent,

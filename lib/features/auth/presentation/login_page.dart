@@ -10,11 +10,13 @@ class LoginPage extends StatefulWidget {
     this.onLogin,
     this.onForgotPassword,
     this.onCreateAccount,
+    this.onGoogleSignIn,
   });
 
   final Future<void> Function(String email, String password)? onLogin;
   final VoidCallback? onForgotPassword;
   final Future<void> Function(String email, String password)? onCreateAccount;
+  final Future<void> Function()? onGoogleSignIn;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -73,6 +75,8 @@ class _LoginPageState extends State<LoginPage> {
           return 'Esse e-mail parece inválido. Confira e tente novamente.';
         case 'network-request-failed':
           return 'Não conseguimos falar com o servidor agora. Verifique sua conexão e tente de novo.';
+        case 'popup-closed-by-user':
+          return 'Entrada com Google cancelada.';
       }
     }
 
@@ -86,6 +90,11 @@ class _LoginPageState extends State<LoginPage> {
     if (raw.contains('network-request-failed') ||
         raw.contains('Failed host lookup')) {
       return 'Não conseguimos falar com o servidor agora. Verifique sua conexão e tente de novo.';
+    }
+    if (raw.contains('popup-closed-by-user') ||
+        raw.contains('sign_in_canceled') ||
+        raw.contains('cancelled')) {
+      return 'Entrada com Google cancelada.';
     }
     return 'Algo não saiu como esperado. Tente novamente em instantes.';
   }
@@ -152,60 +161,6 @@ class _LoginPageState extends State<LoginPage> {
                         child: PalavraVivaLogo(size: 68, showTitle: true),
                       ),
                       const SizedBox(height: 28),
-                      Container(
-                        padding: const EdgeInsets.all(22),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(30),
-                          border: Border.all(color: AppColors.secondary),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.14),
-                              blurRadius: 28,
-                              offset: const Offset(0, 14),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Entre com calma e constância',
-                              style: Theme.of(context).textTheme.headlineSmall
-                                  ?.copyWith(color: Colors.white),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              'Seu estudo, suas revisões e sua caminhada espiritual continuam daqui.',
-                              style: Theme.of(context).textTheme.bodyLarge
-                                  ?.copyWith(
-                                    color: Colors.white.withValues(alpha: 0.88),
-                                    height: 1.6,
-                                  ),
-                            ),
-                            const SizedBox(height: 18),
-                            const Wrap(
-                              spacing: 10,
-                              runSpacing: 10,
-                              children: [
-                                _FeatureChip(
-                                  icon: Icons.auto_stories_outlined,
-                                  label: 'Estudo guiado',
-                                ),
-                                _FeatureChip(
-                                  icon: Icons.style_outlined,
-                                  label: 'Cards bíblicos',
-                                ),
-                                _FeatureChip(
-                                  icon: Icons.forum_outlined,
-                                  label: 'Chat com o texto',
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 22),
                       Card(
                         color: AppColors.primary,
                         child: Padding(
@@ -296,6 +251,51 @@ class _LoginPageState extends State<LoginPage> {
                                 const SizedBox(height: 10),
                                 SizedBox(
                                   width: double.infinity,
+                                  child: OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.white,
+                                      side: BorderSide(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.5,
+                                        ),
+                                      ),
+                                      backgroundColor: Colors.transparent,
+                                    ),
+                                    onPressed: _isLoading ||
+                                            widget.onGoogleSignIn == null
+                                        ? null
+                                        : () async {
+                                            final messenger =
+                                                ScaffoldMessenger.of(context);
+                                            setState(() => _isLoading = true);
+                                            try {
+                                              await widget.onGoogleSignIn!();
+                                            } catch (error) {
+                                              if (!mounted) return;
+                                              messenger.showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    _friendlyErrorMessage(
+                                                      error,
+                                                    ),
+                                                  ),
+                                                ),
+                                              );
+                                            } finally {
+                                              if (mounted) {
+                                                setState(
+                                                  () => _isLoading = false,
+                                                );
+                                              }
+                                            }
+                                          },
+                                    icon: const Icon(Icons.g_mobiledata_rounded),
+                                    label: const Text('Entrar com Google'),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                SizedBox(
+                                  width: double.infinity,
                                   child: OutlinedButton(
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: Colors.white,
@@ -315,6 +315,60 @@ class _LoginPageState extends State<LoginPage> {
                               ],
                             ),
                           ),
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      Container(
+                        padding: const EdgeInsets.all(22),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(color: AppColors.secondary),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primary.withValues(alpha: 0.14),
+                              blurRadius: 28,
+                              offset: const Offset(0, 14),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Entre com calma e constância',
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(color: Colors.white),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              'Seu estudo, suas revisões e sua caminhada espiritual continuam daqui.',
+                              style: Theme.of(context).textTheme.bodyLarge
+                                  ?.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.88),
+                                    height: 1.6,
+                                  ),
+                            ),
+                            const SizedBox(height: 18),
+                            const Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                _FeatureChip(
+                                  icon: Icons.auto_stories_outlined,
+                                  label: 'Estudo guiado',
+                                ),
+                                _FeatureChip(
+                                  icon: Icons.style_outlined,
+                                  label: 'Cards bíblicos',
+                                ),
+                                _FeatureChip(
+                                  icon: Icons.forum_outlined,
+                                  label: 'Chat com o texto',
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 14),

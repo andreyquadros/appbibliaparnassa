@@ -77,24 +77,29 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: AppRoutes.splash,
     redirect: (context, state) {
       final location = state.uri.path;
+      final isSplash = location == AppRoutes.splash;
+      final isOnboarding = location == AppRoutes.onboarding;
+      final isLogin = location == AppRoutes.login;
 
-      final inOnboarding =
-          location == AppRoutes.onboarding || location == AppRoutes.splash;
+      if (authForRedirect.isAuthenticated) {
+        if (isSplash || isLogin || isOnboarding) {
+          return AppRoutes.dashboard;
+        }
+        return null;
+      }
 
-      if (!authForRedirect.onboardingCompleted && !inOnboarding) {
+      if (isSplash) {
+        return authForRedirect.onboardingCompleted
+            ? AppRoutes.login
+            : AppRoutes.onboarding;
+      }
+
+      if (!authForRedirect.onboardingCompleted && !isOnboarding) {
         return AppRoutes.onboarding;
       }
 
-      if (authForRedirect.onboardingCompleted &&
-          !authForRedirect.isAuthenticated) {
-        if (location != AppRoutes.login && location != AppRoutes.onboarding) {
-          return AppRoutes.login;
-        }
-      }
-
-      if (authForRedirect.isAuthenticated &&
-          (location == AppRoutes.login || location == AppRoutes.onboarding)) {
-        return AppRoutes.dashboard;
+      if (authForRedirect.onboardingCompleted && !isLogin && !isOnboarding) {
+        return AppRoutes.login;
       }
 
       return null;
@@ -139,6 +144,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   .read(authControllerProvider.notifier)
                   .registerWithEmail(email: email, password: password);
               if (context.mounted) {
+                context.go(AppRoutes.dashboard);
+              }
+            },
+            onGoogleSignIn: () async {
+              final success = await ref
+                  .read(authControllerProvider.notifier)
+                  .signInWithGoogle();
+              if (success && context.mounted) {
                 context.go(AppRoutes.dashboard);
               }
             },

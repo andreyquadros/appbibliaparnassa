@@ -1,29 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../shared/branding/palavra_viva_logo.dart';
 import '../constants/app_colors.dart';
-import '../constants/app_routes.dart';
 import '../constants/app_strings.dart';
 
-class SplashGatePage extends StatefulWidget {
+class SplashGatePage extends StatelessWidget {
   const SplashGatePage({super.key});
-
-  @override
-  State<SplashGatePage> createState() => _SplashGatePageState();
-}
-
-class _SplashGatePageState extends State<SplashGatePage> {
-  @override
-  void initState() {
-    super.initState();
-    Future<void>.delayed(const Duration(milliseconds: 1400), () {
-      if (!mounted) {
-        return;
-      }
-      context.go(AppRoutes.onboarding);
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
