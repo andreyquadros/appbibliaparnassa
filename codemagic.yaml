@@ -30,8 +30,13 @@ workflows:
         script: |
           flutter build appbundle --release
 
+      - name: Build Android APK
+        script: |
+          flutter build apk --release
+
     artifacts:
       - build/**/outputs/**/*.aab
+      - build/**/outputs/**/*.apk
       - build/**/outputs/**/mapping.txt
       - flutter_drive.log
 

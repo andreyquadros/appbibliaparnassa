@@ -28,7 +28,10 @@ class StudyController extends StateNotifier<AsyncValue<DailyStudy>> {
 
   Future<void> refreshIfNeeded() async {
     final currentStudy = state.asData?.value;
-    if (currentStudy == null) return;
+    if (currentStudy == null) {
+      await refreshStudy();
+      return;
+    }
     if (currentStudy.dateId == _todayDateKey()) return;
     await refreshStudy();
   }
