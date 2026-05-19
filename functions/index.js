@@ -3,6 +3,7 @@ const logger = require("firebase-functions/logger");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {onDocumentUpdated} = require("firebase-functions/v2/firestore");
+const {defineSecret} = require("firebase-functions/params");
 
 admin.initializeApp();
 
@@ -14,6 +15,8 @@ const DEFAULT_TIMEZONE = "America/Sao_Paulo";
 const XAI_API_URL = process.env.XAI_API_URL || "https://api.x.ai/v1/chat/completions";
 const XAI_MODEL = process.env.XAI_MODEL || "grok-2-latest";
 const XAI_MODEL_FALLBACKS = ["grok-2-latest", "grok-3-mini"];
+const xaiApiKey = defineSecret("XAI_API_KEY");
+const XAI_FUNCTION_OPTIONS = {region: REGION, secrets: [xaiApiKey]};
 
 const STUDY_THEMES = [
   "Identidade em Cristo",
@@ -218,8 +221,16 @@ function createPrayer(theme, tone) {
   };
 }
 
+function getXaiApiKey() {
+  try {
+    return xaiApiKey.value() || process.env.XAI_API_KEY || "";
+  } catch (_) {
+    return process.env.XAI_API_KEY || "";
+  }
+}
+
 function hasXaiKey() {
-  return Boolean(process.env.XAI_API_KEY);
+  return Boolean(getXaiApiKey());
 }
 
 function sanitizeString(value, fallback = "") {
@@ -328,7 +339,8 @@ function xaiModelCandidates() {
 }
 
 async function callXai({systemPrompt, userPrompt, temperature = 0.2}) {
-  if (!hasXaiKey()) {
+  const apiKey = getXaiApiKey();
+  if (!apiKey) {
     throw new Error("XAI_API_KEY nao configurada.");
   }
 
@@ -350,7 +362,7 @@ async function callXai({systemPrompt, userPrompt, temperature = 0.2}) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.XAI_API_KEY}`,
+          "Authorization": `Bearer ${apiKey}`,
         },
         body: JSON.stringify(payload),
       });
@@ -814,6 +826,7 @@ exports.generateDailyStudy = onSchedule(
       schedule: "0 3 * * *",
       timeZone: "Etc/UTC",
       retryCount: 1,
+      secrets: [xaiApiKey],
     },
     async () => {
       const now = new Date();
@@ -833,7 +846,7 @@ exports.generateDailyStudy = onSchedule(
     },
 );
 
-exports.generateStudyNow = onCall({region: REGION}, async (request) => {
+exports.generateStudyNow = onCall(XAI_FUNCTION_OPTIONS, async (request) => {
   requireAuth(request);
 
   const now = new Date();
@@ -858,7 +871,7 @@ exports.generateStudyNow = onCall({region: REGION}, async (request) => {
   };
 });
 
-exports.seedInitialContent = onCall({region: REGION}, async (request) => {
+exports.seedInitialContent = onCall(XAI_FUNCTION_OPTIONS, async (request) => {
   requireAuth(request);
 
   let rewardsSeeded = 0;
@@ -1023,7 +1036,7 @@ exports.streakRiskNotification = onSchedule(
     },
 );
 
-exports.simplifyStudy = onCall({region: REGION}, async (request) => {
+exports.simplifyStudy = onCall(XAI_FUNCTION_OPTIONS, async (request) => {
   requireAuth(request);
   const text = String(request.data?.text || "").trim();
 
@@ -1064,7 +1077,7 @@ exports.simplifyStudy = onCall({region: REGION}, async (request) => {
   }
 });
 
-exports.generateGuidedPrayer = onCall({region: REGION}, async (request) => {
+exports.generateGuidedPrayer = onCall(XAI_FUNCTION_OPTIONS, async (request) => {
   requireAuth(request);
   const theme = String(request.data?.theme || "sabedoria");
   const tone = String(request.data?.tone || "grato");
@@ -1145,7 +1158,7 @@ function sanitizeChatHistory(rawHistory) {
       .filter((item) => item.content);
 }
 
-exports.explainScripture = onCall({region: REGION}, async (request) => {
+exports.explainScripture = onCall(XAI_FUNCTION_OPTIONS, async (request) => {
   requireAuth(request);
   const reference = sanitizeString(request.data?.reference, "Referencia biblica");
   const selectedText = sanitizeString(request.data?.selectedText, "");
@@ -1200,7 +1213,7 @@ Explique em 3 blocos curtos:
   }
 });
 
-exports.chatScripture = onCall({region: REGION}, async (request) => {
+exports.chatScripture = onCall(XAI_FUNCTION_OPTIONS, async (request) => {
   requireAuth(request);
 
   const reference = sanitizeString(request.data?.reference, "Referencia biblica");
@@ -1215,7 +1228,7 @@ exports.chatScripture = onCall({region: REGION}, async (request) => {
   if (!hasXaiKey()) {
     return {
       answer:
-        "No momento estou sem acesso ao modelo externo, mas posso te guiar: " +
+        "Ainda nao consegui gerar uma resposta personalizada agora. Enquanto isso, " +
         "observe o contexto da passagem, identifique o ensino central e transforme em pratica hoje.",
       source: "fallback",
       aiIntegration: "XAI_API_KEY ausente; fallback local.",
@@ -1279,7 +1292,7 @@ exports.fetchChristianVideos = onCall({region: REGION}, async (request) => {
   return {channels};
 });
 
-exports.searchVerses = onCall({region: REGION}, async (request) => {
+exports.searchVerses = onCall(XAI_FUNCTION_OPTIONS, async (request) => {
   const query = String(request.data?.query || "").trim();
 
   if (!query) {
@@ -1370,7 +1383,7 @@ Regras: inclua ate 7 itens, use linguagem objetiva.
   }
 });
 
-exports.searchStrong = onCall({region: REGION}, async (request) => {
+exports.searchStrong = onCall(XAI_FUNCTION_OPTIONS, async (request) => {
   requireAuth(request);
   const query = String(request.data?.query || "").trim();
 
