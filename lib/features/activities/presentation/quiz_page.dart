@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:palavra_viva/core/constants/app_colors.dart';
+import 'package:palavra_viva/core/services/ai_service.dart';
 import 'package:palavra_viva/features/auth/application/auth_controller.dart';
 import 'package:palavra_viva/shared/widgets/pv_scaffold.dart';
 
@@ -21,6 +22,7 @@ class _QuizPageState extends ConsumerState<QuizPage> {
   bool _finished = false;
   bool _persistingCompletion = false;
   String? _activeStudyDateId;
+  final AiService _aiService = AiService();
 
   Future<void> _confirmAnswer(
     int totalQuestions,
@@ -48,6 +50,24 @@ class _QuizPageState extends ConsumerState<QuizPage> {
               score: quizState.score,
               questionsAnswered: quizState.questionsAnswered,
             );
+        try {
+          final study = ref.read(studyControllerProvider).asData?.value;
+          if (study != null) {
+            await _aiService.recordLearningSignal(
+              type: 'quiz_concluido',
+              text:
+                  '${study.title} ${study.theme} pontuação ${quizState.score}/${quizState.questionsAnswered}',
+              reference: study.passage,
+              theme: study.theme,
+              metadata: <String, dynamic>{
+                'score': quizState.score,
+                'questionsAnswered': quizState.questionsAnswered,
+              },
+            );
+          }
+        } catch (_) {
+          // O aprendizado personalizado não deve impedir a conclusão do quiz.
+        }
       }
       if (!mounted) return;
       setState(() => _persistingCompletion = false);
@@ -86,7 +106,9 @@ class _QuizPageState extends ConsumerState<QuizPage> {
         child: studyAsync.when(
           data: (study) {
             _resetForStudyIfNeeded(study.dateId);
-            final progressAsync = ref.watch(dailyQuizProgressProvider(study.dateId));
+            final progressAsync = ref.watch(
+              dailyQuizProgressProvider(study.dateId),
+            );
             final questions = study.quiz;
             if (questions.isEmpty) {
               return const Center(

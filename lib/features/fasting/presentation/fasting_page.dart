@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import 'package:palavra_viva/core/constants/app_colors.dart';
+import 'package:palavra_viva/core/services/ai_service.dart';
 import 'package:palavra_viva/models/fast_entry.dart';
 import 'package:palavra_viva/shared/widgets/pv_scaffold.dart';
 
@@ -21,6 +22,7 @@ class _FastingPageState extends ConsumerState<FastingPage> {
   final _purposeController = TextEditingController();
   final _verseController = TextEditingController(text: 'Mateus 6:17-18');
   bool _submitting = false;
+  final AiService _aiService = AiService();
 
   @override
   void dispose() {
@@ -46,6 +48,15 @@ class _FastingPageState extends ConsumerState<FastingPage> {
             purpose: purpose,
             verse: verse,
           );
+      try {
+        await _aiService.recordLearningSignal(
+          type: 'registro_jejum',
+          text: purpose,
+          reference: verse,
+          theme: 'jejum e consagração',
+          metadata: <String, dynamic>{'hours': hours, 'type': _type.name},
+        );
+      } catch (_) {}
       if (!mounted) return;
       _purposeController.clear();
       _hoursController.text = '12';

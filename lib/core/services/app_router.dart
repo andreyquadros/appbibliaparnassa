@@ -25,6 +25,7 @@ import '../../features/study/presentation/study_page.dart';
 import '../../features/videos/presentation/videos_page.dart';
 import '../constants/gamification.dart';
 import '../constants/app_routes.dart';
+import 'ai_service.dart';
 import '../widgets/splash_gate_page.dart';
 
 int _nextLevelTarget(int currentXp) {
@@ -186,6 +187,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 studyStreak: auth.user?.streak.studyStreak ?? 0,
                 prayerStreak: auth.user?.streak.prayerStreak ?? 0,
                 fastingStreak: auth.user?.streak.fastingStreak ?? 0,
+                personalizedFocus:
+                    auth.user?.spiritualProfile.suggestedFocus ?? '',
+                personalizedSignals:
+                    auth.user?.spiritualProfile.interactionCount ?? 0,
                 onOpenStudy: () => context.push(AppRoutes.study),
                 onOpenVideos: () => context.push(AppRoutes.videos),
                 onOpenFlashcards: () => context.push(AppRoutes.flashcards),
@@ -214,6 +219,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                               excerpt: todayStudy.memoryVerse,
                               category: 'palavra_do_dia',
                             );
+                        try {
+                          await AiService().recordLearningSignal(
+                            type: 'salvar_palavra_do_dia',
+                            text:
+                                '${todayStudy.title} ${todayStudy.theme} ${todayStudy.memoryVerse}',
+                            reference: todayStudy.passage,
+                            theme: todayStudy.theme,
+                          );
+                        } catch (_) {
+                          // Personalização é incremental e não deve bloquear o salvar.
+                        }
                         return added
                             ? 'Palavra do dia salva no perfil.'
                             : 'Essa palavra já estava salva no perfil.';

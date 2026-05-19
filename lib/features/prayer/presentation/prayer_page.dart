@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_routes.dart';
+import '../../../core/services/ai_service.dart';
 import '../../../features/fasting/application/fasting_controller.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../../models/fast_entry.dart';
@@ -22,6 +23,7 @@ class PrayerPage extends ConsumerStatefulWidget {
 
 class _PrayerPageState extends ConsumerState<PrayerPage> {
   bool _submitting = false;
+  final AiService _aiService = AiService();
 
   Future<void> _openAddDialog() async {
     final titleController = TextEditingController();
@@ -114,8 +116,18 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
                       .addPrayer(
                         title: title,
                         content: content,
-                        verse: verse.isEmpty ? 'Sem versículo informado' : verse,
+                        verse: verse.isEmpty
+                            ? 'Sem versículo informado'
+                            : verse,
                       );
+                  try {
+                    await _aiService.recordLearningSignal(
+                      type: 'pedido_oracao',
+                      text: '$title $content',
+                      reference: verse,
+                      theme: 'oração',
+                    );
+                  } catch (_) {}
                   if (!mounted) return;
                   navigator.pop();
                   messenger.showSnackBar(
@@ -157,8 +169,8 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
     final user = ref.watch(currentUserProvider);
     final showBack = Navigator.of(context).canPop();
     final lastPrayerDate = user?.streak.lastPrayerDate;
-    final prayedToday = lastPrayerDate != null &&
-        _isSameDay(lastPrayerDate, DateTime.now());
+    final prayedToday =
+        lastPrayerDate != null && _isSameDay(lastPrayerDate, DateTime.now());
 
     return PvScaffold(
       title: 'Diário Espiritual',
@@ -252,6 +264,13 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
                           await ref
                               .read(prayerActionsProvider)
                               .markPrayerToday();
+                          try {
+                            await _aiService.recordLearningSignal(
+                              type: 'marcar_oracao_hoje',
+                              text: 'O usuário marcou que orou hoje.',
+                              theme: 'oração e intimidade com Deus',
+                            );
+                          } catch (_) {}
                           if (!mounted) return;
                           messenger.showSnackBar(
                             const SnackBar(

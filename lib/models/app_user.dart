@@ -12,6 +12,7 @@ class AppUser {
     this.level = 1,
     this.title = 'Neófito',
     this.streak = const StreakState(),
+    this.spiritualProfile = const SpiritualProfile(),
   });
 
   final String id;
@@ -24,6 +25,7 @@ class AppUser {
   final int level;
   final String title;
   final StreakState streak;
+  final SpiritualProfile spiritualProfile;
 
   AppUser copyWith({
     String? id,
@@ -36,6 +38,7 @@ class AppUser {
     int? level,
     String? title,
     StreakState? streak,
+    SpiritualProfile? spiritualProfile,
   }) {
     return AppUser(
       id: id ?? this.id,
@@ -48,6 +51,35 @@ class AppUser {
       level: level ?? this.level,
       title: title ?? this.title,
       streak: streak ?? this.streak,
+      spiritualProfile: spiritualProfile ?? this.spiritualProfile,
     );
   }
+}
+
+class SpiritualProfile {
+  const SpiritualProfile({
+    this.topicScores = const <String, int>{},
+    this.dominantTopics = const <SpiritualTopic>[],
+    this.suggestedFocus = '',
+    this.interactionCount = 0,
+  });
+
+  final Map<String, int> topicScores;
+  final List<SpiritualTopic> dominantTopics;
+  final String suggestedFocus;
+  final int interactionCount;
+
+  bool get hasSignals => dominantTopics.isNotEmpty || suggestedFocus.isNotEmpty;
+}
+
+class SpiritualTopic {
+  const SpiritualTopic({
+    required this.id,
+    required this.label,
+    required this.score,
+  });
+
+  final String id;
+  final String label;
+  final int score;
 }

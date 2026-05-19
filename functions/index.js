@@ -202,6 +202,81 @@ const CHRISTIAN_VIDEO_CHANNELS = [
   },
 ];
 
+const SPIRITUAL_TOPICS = [
+  {
+    id: "financas",
+    label: "finanças e provisão",
+    keywords: [
+      "financa", "financas", "dinheiro", "divida", "dividas", "salario",
+      "trabalho", "emprego", "provisao", "prosperidade", "sustento",
+    ],
+  },
+  {
+    id: "amor_ao_proximo",
+    label: "amar ao próximo",
+    keywords: [
+      "amar", "proximo", "perdoar", "perdao", "relacionamento", "familia",
+      "casamento", "amizade", "reconciliacao", "misericordia", "compaixao",
+    ],
+  },
+  {
+    id: "ansiedade_paz",
+    label: "ansiedade, descanso e paz",
+    keywords: [
+      "ansiedade", "ansioso", "preocupacao", "medo", "paz", "descanso",
+      "inseguranca", "angustia", "depressao", "tristeza", "cansaco",
+    ],
+  },
+  {
+    id: "oracao_intimidade",
+    label: "oração e intimidade com Deus",
+    keywords: [
+      "oracao", "orar", "interceder", "jejum", "intimidade", "presenca",
+      "devocional", "silencio", "consagracao",
+    ],
+  },
+  {
+    id: "sabedoria_decisoes",
+    label: "sabedoria e decisões",
+    keywords: [
+      "sabedoria", "decisao", "decidir", "direcao", "caminho", "duvida",
+      "discernimento", "escolha", "orientacao", "conselho",
+    ],
+  },
+  {
+    id: "fe_perseveranca",
+    label: "fé e perseverança",
+    keywords: [
+      "fe", "perseveranca", "constancia", "esperanca", "desistir", "luta",
+      "prova", "tentacao", "coragem", "forca",
+    ],
+  },
+  {
+    id: "identidade_graca",
+    label: "identidade, graça e perdão",
+    keywords: [
+      "culpa", "vergonha", "identidade", "graca", "perdoado", "salvacao",
+      "condenacao", "arrependimento", "pecado", "restauracao",
+    ],
+  },
+  {
+    id: "familia_relacionamentos",
+    label: "família e relacionamentos",
+    keywords: [
+      "pai", "mae", "filho", "filha", "irmao", "irma", "familia",
+      "lar", "marido", "esposa", "namoro", "noivado",
+    ],
+  },
+  {
+    id: "proposito_servico",
+    label: "propósito e serviço",
+    keywords: [
+      "proposito", "chamado", "ministerio", "servir", "dom", "missao",
+      "vocacao", "igreja", "lideranca",
+    ],
+  },
+];
+
 function getDatePartsInTimeZone(date, timeZone) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
@@ -285,6 +360,157 @@ function requireAuth(request) {
     throw new HttpsError("unauthenticated", "Autenticacao obrigatoria.");
   }
   return request.auth.uid;
+}
+
+function normalizeForTopicScan(value) {
+  return String(value || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+}
+
+function topicById(topicId) {
+  return SPIRITUAL_TOPICS.find((topic) => topic.id === topicId) || null;
+}
+
+function scoreSpiritualTopics({text = "", theme = "", reference = ""}) {
+  const combined = normalizeForTopicScan(`${text} ${theme} ${reference}`);
+  const scores = {};
+  for (const topic of SPIRITUAL_TOPICS) {
+    let score = 0;
+    for (const keyword of topic.keywords) {
+      const normalizedKeyword = normalizeForTopicScan(keyword);
+      if (!normalizedKeyword) continue;
+      const matches = combined.match(new RegExp(`\\b${normalizedKeyword}\\b`, "g"));
+      if (matches) score += matches.length;
+    }
+    if (score > 0) {
+      scores[topic.id] = Math.min(score, 8);
+    }
+  }
+
+  if (Object.keys(scores).length === 0) {
+    const fallbackTopic = topicById("fe_perseveranca");
+    if (fallbackTopic) scores[fallbackTopic.id] = 1;
+  }
+  return scores;
+}
+
+function dominantTopicsFromScores(scores) {
+  return Object.entries(scores || {})
+      .map(([id, score]) => ({
+        id,
+        label: topicById(id)?.label || id,
+        score: Number(score) || 0,
+      }))
+      .filter((topic) => topic.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3);
+}
+
+function profileSuggestionFromTopics(topics) {
+  if (!Array.isArray(topics) || topics.length === 0) {
+    return "fé e perseverança";
+  }
+  return topics.map((topic) => topic.label).join(", ");
+}
+
+async function getUserSpiritualProfile(uid) {
+  const snap = await db.collection("users").doc(uid).get();
+  const profile = snap.data()?.spiritualProfile || {};
+  const dominantTopics = Array.isArray(profile.dominantTopics) ?
+    profile.dominantTopics
+        .map((topic) => ({
+          id: sanitizeString(topic?.id, ""),
+          label: sanitizeString(topic?.label, ""),
+          score: Number(topic?.score || 0),
+        }))
+        .filter((topic) => topic.id && topic.label) :
+    [];
+
+  return {
+    dominantTopics,
+    suggestedFocus: sanitizeString(
+        profile.suggestedFocus,
+        profileSuggestionFromTopics(dominantTopics),
+    ),
+    interactionCount: Number(profile.interactionCount || 0),
+  };
+}
+
+function personalizationPrompt(profile) {
+  const topics = profile?.dominantTopics || [];
+  if (!topics.length) {
+    return "Perfil do aluno ainda em formacao; incentive constancia, fe e obediencia pratica.";
+  }
+
+  return [
+    `Foco pastoral mais recorrente do aluno: ${profile.suggestedFocus}.`,
+    "Adapte exemplos e aplicacoes com sensibilidade a esses temas, sem afirmar que voce sabe tudo sobre a vida da pessoa.",
+    "Seja encorajador, biblico e pratico; nao exponha dados internos de perfil.",
+  ].join(" ");
+}
+
+async function recordLearningSignalInternal({
+  uid,
+  type,
+  text = "",
+  reference = "",
+  theme = "",
+  metadata = {},
+}) {
+  const safeType = sanitizeString(type, "interacao").slice(0, 50);
+  const safeText = sanitizeString(text, "").slice(0, 1600);
+  const safeReference = sanitizeString(reference, "").slice(0, 120);
+  const safeTheme = sanitizeString(theme, "").slice(0, 120);
+  const topicScores = scoreSpiritualTopics({
+    text: safeText,
+    reference: safeReference,
+    theme: safeTheme,
+  });
+  const userRef = db.collection("users").doc(uid);
+  const signalRef = userRef.collection("learningSignals").doc();
+
+  await db.runTransaction(async (transaction) => {
+    const userSnap = await transaction.get(userRef);
+    const currentProfile = userSnap.data()?.spiritualProfile || {};
+    const currentScores = {...(currentProfile.topicScores || {})};
+
+    for (const [topicId, score] of Object.entries(topicScores)) {
+      currentScores[topicId] = Number(currentScores[topicId] || 0) + score;
+    }
+
+    const dominantTopics = dominantTopicsFromScores(currentScores);
+    const interactionCount = Number(currentProfile.interactionCount || 0) + 1;
+
+    transaction.set(signalRef, {
+      type: safeType,
+      reference: safeReference,
+      theme: safeTheme,
+      preview: safeText.slice(0, 500),
+      topicScores,
+      metadata,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+
+    transaction.set(userRef, {
+      spiritualProfile: {
+        topicScores: currentScores,
+        dominantTopics,
+        suggestedFocus: profileSuggestionFromTopics(dominantTopics),
+        interactionCount,
+        lastInteractionType: safeType,
+        lastInteractionAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    }, {merge: true});
+  });
+
+  return {
+    topicScores,
+    dominantTopics: dominantTopicsFromScores(topicScores),
+  };
 }
 
 function simplifyText(text) {
@@ -843,8 +1069,9 @@ function normalizeStudy(raw, theme, dateKey) {
   };
 }
 
-async function generateDailyStudyWithXai(dateKey, theme) {
+async function generateDailyStudyWithXai(dateKey, theme, options = {}) {
   const dailyVerse = dailyVerseForDateKey(dateKey);
+  const personalization = sanitizeString(options.personalization, "");
   if (!hasXaiKey()) {
     logger.warn("XAI_API_KEY ausente. Usando fallback para estudo diario.");
     return fallbackStudy(theme, dateKey);
@@ -862,6 +1089,7 @@ Data do estudo: ${dateKey}
 Versiculo unico do dia: ${dailyVerse.reference}
 Tema do plano anual: ${dailyVerse.theme}
 Tema complementar: ${theme}
+Personalizacao pastoral: ${personalization || "sem personalizacao individual"}
 Idioma: portugues (pt-BR)
 
 Retorne JSON no formato:
@@ -891,6 +1119,7 @@ Regras:
 - O campo "passage" e o campo "memoryVerse" devem ser exatamente "${dailyVerse.reference}".
 - Gere 5 perguntas no quiz.
 - Traga referencias biblicas no texto quando adequado.
+- Se houver personalizacao pastoral, adapte aplicacoes, meditacao, oracao e perguntas para esse foco sem mencionar que existe um perfil interno.
 - Evite linguagem polemica desnecessaria.
 `.trim();
 
@@ -983,6 +1212,72 @@ exports.generateStudyNow = onCall(XAI_FUNCTION_OPTIONS, async (request) => {
     dateKey,
     source: study.source,
     study,
+  };
+});
+
+exports.generatePersonalizedStudy = onCall(XAI_FUNCTION_OPTIONS, async (request) => {
+  const uid = requireAuth(request);
+
+  const now = new Date();
+  const requestedDate = String(request.data?.dateKey || "").trim();
+  const dateKey = requestedDate || getDateKeyInTimeZone(now, DEFAULT_TIMEZONE);
+  const profile = await getUserSpiritualProfile(uid);
+  const dailyVerse = dailyVerseForDateKey(dateKey);
+  const theme = profile.suggestedFocus ?
+    `${dailyVerse.theme}; cuidado pastoral: ${profile.suggestedFocus}` :
+    dailyVerse.theme;
+
+  const study = await generateDailyStudyWithXai(dateKey, theme, {
+    personalization: personalizationPrompt(profile),
+  });
+
+  await db
+      .collection("users")
+      .doc(uid)
+      .collection("personalizedStudies")
+      .doc(dateKey)
+      .set({
+        ...study,
+        personalized: true,
+        profileFocus: profile.suggestedFocus,
+        dominantTopics: profile.dominantTopics,
+        generatedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      }, {merge: true});
+
+  await recordLearningSignalInternal({
+    uid,
+    type: "estudo_personalizado",
+    text: `${study.title} ${study.theme} ${study.application}`,
+    reference: study.passage,
+    theme: study.theme,
+    metadata: {dateKey},
+  });
+
+  return {
+    dateKey,
+    source: study.source,
+    profileFocus: profile.suggestedFocus,
+    study,
+  };
+});
+
+exports.recordLearningSignal = onCall({region: REGION}, async (request) => {
+  const uid = requireAuth(request);
+  const result = await recordLearningSignalInternal({
+    uid,
+    type: request.data?.type,
+    text: request.data?.text,
+    reference: request.data?.reference,
+    theme: request.data?.theme,
+    metadata: request.data?.metadata && typeof request.data.metadata === "object" ?
+      request.data.metadata :
+      {},
+  });
+
+  return {
+    ok: true,
+    topics: result.dominantTopics,
   };
 });
 
@@ -1274,7 +1569,7 @@ function sanitizeChatHistory(rawHistory) {
 }
 
 exports.explainScripture = onCall(XAI_FUNCTION_OPTIONS, async (request) => {
-  requireAuth(request);
+  const uid = requireAuth(request);
   const reference = sanitizeString(request.data?.reference, "Referencia biblica");
   const selectedText = sanitizeString(request.data?.selectedText, "");
   const passageText = sanitizeString(request.data?.passageText, "");
@@ -1287,6 +1582,13 @@ exports.explainScripture = onCall(XAI_FUNCTION_OPTIONS, async (request) => {
   }
 
   if (!hasXaiKey()) {
+    await recordLearningSignalInternal({
+      uid,
+      type: "explicacao_texto",
+      text: selectedText,
+      reference,
+      theme: "explicacao biblica",
+    });
     return {
       explanation: fallbackExplanation(reference, selectedText),
       source: "fallback",
@@ -1294,12 +1596,14 @@ exports.explainScripture = onCall(XAI_FUNCTION_OPTIONS, async (request) => {
     };
   }
 
+  const profile = await getUserSpiritualProfile(uid);
   const systemPrompt =
     "Voce e um tutor biblico protestante reformado em portugues. Explique texto com clareza, fidelidade e aplicacao.";
   const userPrompt = `
 Referencia: ${reference}
 Trecho clicado: ${selectedText}
 Texto completo da passagem (se disponivel): ${passageText || "nao informado"}
+Direcionamento pastoral do aluno: ${personalizationPrompt(profile)}
 
 Explique em 3 blocos curtos:
 1) Significado do texto
@@ -1313,6 +1617,13 @@ Explique em 3 blocos curtos:
       userPrompt,
       temperature: 0.2,
     });
+    await recordLearningSignalInternal({
+      uid,
+      type: "explicacao_texto",
+      text: `${selectedText}\n${explanation}`,
+      reference,
+      theme: profile.suggestedFocus,
+    });
     return {
       explanation,
       source: "xai",
@@ -1320,6 +1631,13 @@ Explique em 3 blocos curtos:
     };
   } catch (error) {
     logger.error("Erro xAI explainScripture", {error: String(error)});
+    await recordLearningSignalInternal({
+      uid,
+      type: "explicacao_texto",
+      text: selectedText,
+      reference,
+      theme: "explicacao biblica",
+    });
     return {
       explanation: fallbackExplanation(reference, selectedText),
       source: "fallback",
@@ -1329,7 +1647,7 @@ Explique em 3 blocos curtos:
 });
 
 exports.chatScripture = onCall(XAI_FUNCTION_OPTIONS, async (request) => {
-  requireAuth(request);
+  const uid = requireAuth(request);
 
   const reference = sanitizeString(request.data?.reference, "Referencia biblica");
   const passageText = sanitizeString(request.data?.passageText, "");
@@ -1341,6 +1659,13 @@ exports.chatScripture = onCall(XAI_FUNCTION_OPTIONS, async (request) => {
   }
 
   if (!hasXaiKey()) {
+    await recordLearningSignalInternal({
+      uid,
+      type: "chat_texto",
+      text: question,
+      reference,
+      theme: "chat biblico",
+    });
     return {
       answer:
         "Ainda nao consegui gerar uma resposta personalizada agora. Enquanto isso, " +
@@ -1350,6 +1675,7 @@ exports.chatScripture = onCall(XAI_FUNCTION_OPTIONS, async (request) => {
     };
   }
 
+  const profile = await getUserSpiritualProfile(uid);
   const systemPrompt =
     "Voce e um tutor biblico em modo conversa. Ensine com fidelidade ao texto, linguagem simples e foco no discipulado.";
   const historyText = history
@@ -1359,6 +1685,7 @@ exports.chatScripture = onCall(XAI_FUNCTION_OPTIONS, async (request) => {
   const userPrompt = `
 Passagem: ${reference}
 Texto base: ${passageText || "nao informado"}
+Direcionamento pastoral do aluno: ${personalizationPrompt(profile)}
 
 Historico recente:
 ${historyText || "sem historico"}
@@ -1375,6 +1702,13 @@ Responda em portugues com objetividade, sem inventar referencias.
       userPrompt,
       temperature: 0.35,
     });
+    await recordLearningSignalInternal({
+      uid,
+      type: "chat_texto",
+      text: `${question}\n${answer}`,
+      reference,
+      theme: profile.suggestedFocus,
+    });
     return {
       answer,
       source: "xai",
@@ -1382,6 +1716,13 @@ Responda em portugues com objetividade, sem inventar referencias.
     };
   } catch (error) {
     logger.error("Erro xAI chatScripture", {error: String(error)});
+    await recordLearningSignalInternal({
+      uid,
+      type: "chat_texto",
+      text: question,
+      reference,
+      theme: "chat biblico",
+    });
     return {
       answer:
         "Nao consegui responder agora por falha temporaria. Tente reformular a pergunta em uma frase curta.",

@@ -47,6 +47,12 @@ class UserProfileRepository {
           'fastingStreak': 0,
           'availableFreeze': 1,
         },
+        'spiritualProfile': <String, dynamic>{
+          'topicScores': <String, int>{},
+          'dominantTopics': const <Map<String, dynamic>>[],
+          'suggestedFocus': '',
+          'interactionCount': 0,
+        },
         'unlockedRewardIds': const <String>[],
         'createdAt': now,
         'updatedAt': now,
@@ -85,6 +91,9 @@ class UserProfileRepository {
     final streakData =
         (data['streak'] as Map?)?.cast<String, dynamic>() ??
         const <String, dynamic>{};
+    final spiritualProfileData =
+        (data['spiritualProfile'] as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
 
     return AppUser(
       id: uid,
@@ -105,6 +114,7 @@ class UserProfileRepository {
         lastFastDate: _asDate(streakData['lastFastDate']),
         availableFreeze: _asInt(streakData['availableFreeze'], 1),
       ),
+      spiritualProfile: _spiritualProfileFromMap(spiritualProfileData),
     );
   }
 
@@ -129,8 +139,51 @@ class UserProfileRepository {
         'lastFastDate': user.streak.lastFastDate,
         'availableFreeze': user.streak.availableFreeze,
       },
+      'spiritualProfile': <String, dynamic>{
+        'topicScores': user.spiritualProfile.topicScores,
+        'dominantTopics': user.spiritualProfile.dominantTopics
+            .map(
+              (topic) => <String, dynamic>{
+                'id': topic.id,
+                'label': topic.label,
+                'score': topic.score,
+              },
+            )
+            .toList(growable: false),
+        'suggestedFocus': user.spiritualProfile.suggestedFocus,
+        'interactionCount': user.spiritualProfile.interactionCount,
+      },
       'updatedAt': FieldValue.serverTimestamp(),
     };
+  }
+
+  SpiritualProfile _spiritualProfileFromMap(Map<String, dynamic> data) {
+    final rawScores =
+        (data['topicScores'] as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+    final scores = rawScores.map((key, value) => MapEntry(key, _asInt(value)));
+    final rawTopics = data['dominantTopics'];
+    final topics = rawTopics is List
+        ? rawTopics
+              .whereType<Map>()
+              .map((topic) {
+                final mapped = topic.cast<String, dynamic>();
+                return SpiritualTopic(
+                  id: _asString(mapped['id'], ''),
+                  label: _asString(mapped['label'], ''),
+                  score: _asInt(mapped['score']),
+                );
+              })
+              .where((topic) => topic.id.isNotEmpty && topic.label.isNotEmpty)
+              .toList(growable: false)
+        : const <SpiritualTopic>[];
+
+    return SpiritualProfile(
+      topicScores: scores,
+      dominantTopics: topics,
+      suggestedFocus: _asString(data['suggestedFocus'], ''),
+      interactionCount: _asInt(data['interactionCount']),
+    );
   }
 
   int _asInt(Object? value, [int fallback = 0]) {

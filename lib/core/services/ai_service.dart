@@ -89,4 +89,21 @@ class AiService {
         ? data['answer'] as String
         : 'Não consegui responder agora. Tente novamente.';
   }
+
+  Future<void> recordLearningSignal({
+    required String type,
+    required String text,
+    String reference = '',
+    String theme = '',
+    Map<String, dynamic> metadata = const <String, dynamic>{},
+  }) async {
+    final callable = _functions.httpsCallable('recordLearningSignal');
+    await callable.call(<String, dynamic>{
+      'type': type,
+      'text': text,
+      'reference': reference,
+      'theme': theme,
+      'metadata': metadata,
+    });
+  }
 }

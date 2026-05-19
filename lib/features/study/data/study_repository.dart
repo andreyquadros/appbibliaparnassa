@@ -24,6 +24,10 @@ class StudyRepository {
     final dateKey = DateFormat('yyyy-MM-dd').format(_now());
 
     if (forceGenerate) {
+      final personalizedStudy = await _generatePersonalizedStudy(dateKey);
+      if (personalizedStudy != null) {
+        return personalizedStudy;
+      }
       await _generateStudy(dateKey);
     }
 
@@ -54,6 +58,26 @@ class StudyRepository {
       await callable.call(<String, dynamic>{'dateKey': dateKey});
     } catch (_) {
       // Falha silenciosa: a UI faz fallback local se nao houver documento.
+    }
+  }
+
+  Future<DailyStudy?> _generatePersonalizedStudy(String dateKey) async {
+    try {
+      final callable = _functions.httpsCallable('generatePersonalizedStudy');
+      final response = await callable.call(<String, dynamic>{
+        'dateKey': dateKey,
+      });
+      final data = response.data;
+      if (data is! Map) {
+        return null;
+      }
+      final studyData = data['study'];
+      if (studyData is! Map) {
+        return null;
+      }
+      return _fromFirestore(dateKey, studyData.cast<String, dynamic>());
+    } catch (_) {
+      return null;
     }
   }
 

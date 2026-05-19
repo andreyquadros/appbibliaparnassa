@@ -22,6 +22,8 @@ class DashboardPage extends StatefulWidget {
     this.studyStreak = 0,
     this.prayerStreak = 0,
     this.fastingStreak = 0,
+    this.personalizedFocus = '',
+    this.personalizedSignals = 0,
     this.onOpenStudy,
     this.onOpenVideos,
     this.onOpenFlashcards,
@@ -47,6 +49,8 @@ class DashboardPage extends StatefulWidget {
   final int studyStreak;
   final int prayerStreak;
   final int fastingStreak;
+  final String personalizedFocus;
+  final int personalizedSignals;
   final VoidCallback? onOpenStudy;
   final VoidCallback? onOpenVideos;
   final VoidCallback? onOpenFlashcards;
@@ -194,6 +198,14 @@ class _DashboardPageState extends State<DashboardPage> {
             ],
           ),
           const SizedBox(height: 22),
+          if (widget.personalizedFocus.trim().isNotEmpty) ...[
+            _PersonalizedFocusCard(
+              focus: widget.personalizedFocus,
+              signals: widget.personalizedSignals,
+              onTap: widget.onOpenStudy,
+            ),
+            const SizedBox(height: 22),
+          ],
           _SectionLabel(title: 'Jornada Anual', trailing: 'Dia $readingDay'),
           const SizedBox(height: 10),
           ClipRRect(
@@ -433,6 +445,89 @@ class _SectionLabel extends StatelessWidget {
           ).textTheme.titleMedium?.copyWith(color: AppColors.secondary),
         ),
       ],
+    );
+  }
+}
+
+class _PersonalizedFocusCard extends StatelessWidget {
+  const _PersonalizedFocusCard({
+    required this.focus,
+    required this.signals,
+    this.onTap,
+  });
+
+  final String focus;
+  final int signals;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Ink(
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AppColors.secondary),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.psychology_alt_outlined,
+                  color: AppColors.accent,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Caminho personalizado',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: AppColors.accent,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'O app está percebendo que você tem buscado mais sobre $focus.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.white,
+                        height: 1.35,
+                      ),
+                    ),
+                    if (signals > 0) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '$signals interações consideradas na sua jornada.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.72),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16,
+                color: Colors.white,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -44,6 +46,14 @@ class _StudyPageState extends ConsumerState<StudyPage> {
           .read(flashcardControllerProvider)
           .addFromStudy(study);
       if (!mounted) return;
+      unawaited(
+        _aiService.recordLearningSignal(
+          type: 'salvar_flashcard_estudo',
+          text: '${study.title} ${study.theme} ${study.memoryVerse}',
+          reference: study.passage,
+          theme: study.theme,
+        ),
+      );
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -295,6 +305,14 @@ class _StudyContentState extends State<_StudyContent> {
   }
 
   Future<void> _openChat() async {
+    unawaited(
+      _aiService.recordLearningSignal(
+        type: 'abrir_chat_texto',
+        text: widget.study.title,
+        reference: widget.study.passage,
+        theme: widget.study.theme,
+      ),
+    );
     String passageText = widget.study.mainText;
     try {
       final passage = await _passageFuture;
