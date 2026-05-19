@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../models/daily_study.dart';
 import '../../../models/quiz_question.dart';
+import 'daily_verse_plan.dart';
 
 class StudyRepository {
   StudyRepository({
@@ -58,6 +59,9 @@ class StudyRepository {
 
   DailyStudy _fromFirestore(String dateKey, Map<String, dynamic> data) {
     final preset = _fallbackPresetFor(dateKey);
+    final dailyVerse = DailyVersePlan.forDateKey(dateKey);
+    final storedPassage = _string(data['passage'], preset.passage);
+    final shouldPreferAnnualPlan = storedPassage != dailyVerse.reference;
     final rawQuiz = (data['quiz'] as List?) ?? const [];
     final quiz = rawQuiz
         .whereType<Map>()
@@ -81,26 +85,42 @@ class StudyRepository {
       _ => _now(),
     };
 
-    final title = _string(data['title'], preset.title);
-    final passage = _string(data['passage'], preset.passage);
-    final application = _string(data['application'], preset.application);
-    final theme = _string(data['theme'], preset.theme);
+    final title = shouldPreferAnnualPlan
+        ? 'Estudo diário: ${dailyVerse.theme}'
+        : _string(data['title'], preset.title);
+    final passage = dailyVerse.reference;
+    final application = shouldPreferAnnualPlan
+        ? _dailyApplication(dailyVerse)
+        : _string(data['application'], preset.application);
+    final theme = dailyVerse.theme;
 
     return DailyStudy(
       dateId: dateKey,
       title: title,
       passage: passage,
-      mainText: _string(
-        data['mainText'],
-        _string(data['context'], preset.mainText),
-      ),
-      historicalContext: _string(data['context'], preset.historicalContext),
-      exegesis: _string(data['exegesis'], preset.exegesis),
+      mainText: shouldPreferAnnualPlan
+          ? _dailyMainText(dailyVerse)
+          : _string(
+              data['mainText'],
+              _string(data['context'], _dailyMainText(dailyVerse)),
+            ),
+      historicalContext: shouldPreferAnnualPlan
+          ? _dailyHistoricalContext(dailyVerse)
+          : _string(data['context'], preset.historicalContext),
+      exegesis: shouldPreferAnnualPlan
+          ? _dailyExegesis(dailyVerse)
+          : _string(data['exegesis'], preset.exegesis),
       application: application,
-      connection: _string(data['connection'], preset.connection),
-      meditation: _string(data['meditation'], preset.meditation),
-      memoryVerse: _string(data['memoryVerse'], preset.memoryVerse),
-      guidedPrayer: _string(data['guidedPrayer'], preset.guidedPrayer),
+      connection: shouldPreferAnnualPlan
+          ? _dailyConnection(dailyVerse)
+          : _string(data['connection'], preset.connection),
+      meditation: shouldPreferAnnualPlan
+          ? _dailyMeditation(dailyVerse)
+          : _string(data['meditation'], preset.meditation),
+      memoryVerse: dailyVerse.reference,
+      guidedPrayer: shouldPreferAnnualPlan
+          ? _dailyPrayer(dailyVerse)
+          : _string(data['guidedPrayer'], preset.guidedPrayer),
       quiz: _ensureFiveQuestions(
         dateKey: dateKey,
         baseQuiz: quiz,
@@ -110,10 +130,12 @@ class StudyRepository {
         theme: theme,
         application: application,
       ),
-      reflectionQuestion: _string(
-        data['reflectionQuestion'],
-        preset.reflectionQuestion,
-      ),
+      reflectionQuestion: shouldPreferAnnualPlan
+          ? _dailyReflectionQuestion(dailyVerse)
+          : _string(
+              data['reflectionQuestion'],
+              _dailyReflectionQuestion(dailyVerse),
+            ),
       theme: theme,
       generatedAt: generatedAt,
     );
@@ -132,29 +154,30 @@ class StudyRepository {
 
   DailyStudy _localFallback(String dateKey) {
     final preset = _fallbackPresetFor(dateKey);
+    final dailyVerse = DailyVersePlan.forDateKey(dateKey);
     return DailyStudy(
       dateId: dateKey,
-      title: preset.title,
-      passage: preset.passage,
-      mainText: preset.mainText,
-      historicalContext: preset.historicalContext,
-      exegesis: preset.exegesis,
-      application: preset.application,
-      connection: preset.connection,
-      meditation: preset.meditation,
-      memoryVerse: preset.memoryVerse,
-      guidedPrayer: preset.guidedPrayer,
+      title: 'Estudo diário: ${dailyVerse.theme}',
+      passage: dailyVerse.reference,
+      mainText: _dailyMainText(dailyVerse),
+      historicalContext: _dailyHistoricalContext(dailyVerse),
+      exegesis: _dailyExegesis(dailyVerse),
+      application: _dailyApplication(dailyVerse),
+      connection: _dailyConnection(dailyVerse),
+      meditation: _dailyMeditation(dailyVerse),
+      memoryVerse: dailyVerse.reference,
+      guidedPrayer: _dailyPrayer(dailyVerse),
       quiz: _ensureFiveQuestions(
         dateKey: dateKey,
         baseQuiz: preset.quiz,
         fallbackQuiz: preset.quiz,
-        title: preset.title,
-        passage: preset.passage,
-        theme: preset.theme,
-        application: preset.application,
+        title: 'Estudo diário: ${dailyVerse.theme}',
+        passage: dailyVerse.reference,
+        theme: dailyVerse.theme,
+        application: _dailyApplication(dailyVerse),
       ),
-      reflectionQuestion: preset.reflectionQuestion,
-      theme: preset.theme,
+      reflectionQuestion: _dailyReflectionQuestion(dailyVerse),
+      theme: dailyVerse.theme,
       generatedAt: _now(),
     );
   }
@@ -162,6 +185,51 @@ class StudyRepository {
   _FallbackStudyPreset _fallbackPresetFor(String dateKey) {
     final hash = dateKey.codeUnits.fold<int>(0, (total, unit) => total + unit);
     return _fallbackPresets[hash % _fallbackPresets.length];
+  }
+
+  String _dailyMainText(DailyVerseEntry dailyVerse) {
+    return 'A Palavra do Dia segue o plano anual de leitura devocional: '
+        '${dailyVerse.reference}. Este texto foi separado para renovar sua '
+        'meditação de hoje no Senhor.';
+  }
+
+  String _dailyHistoricalContext(DailyVerseEntry dailyVerse) {
+    return 'O texto de ${dailyVerse.reference} faz parte do eixo devocional '
+        '"${dailyVerse.theme}". Leia a passagem observando quem fala, a quem '
+        'se dirige e que aspecto do caráter de Deus aparece no contexto.';
+  }
+
+  String _dailyExegesis(DailyVerseEntry dailyVerse) {
+    return 'Observe as palavras centrais do versículo, sua ligação com o '
+        'capítulo e como o tema "${dailyVerse.theme}" ajuda a transformar a '
+        'leitura em fé obediente.';
+  }
+
+  String _dailyApplication(DailyVerseEntry dailyVerse) {
+    return 'Separe alguns minutos para ler ${dailyVerse.reference}, anotar uma '
+        'verdade sobre Deus e escolher uma atitude prática de obediência para '
+        'hoje.';
+  }
+
+  String _dailyConnection(DailyVerseEntry dailyVerse) {
+    return 'Conecte ${dailyVerse.reference} com a história maior da redenção: '
+        'a Palavra aponta para Deus formando um povo que confia, obedece e '
+        'caminha com Ele.';
+  }
+
+  String _dailyMeditation(DailyVerseEntry dailyVerse) {
+    return 'A misericórdia do Senhor se renova a cada manhã; por isso, receba '
+        '${dailyVerse.reference} como alimento novo para este dia.';
+  }
+
+  String _dailyPrayer(DailyVerseEntry dailyVerse) {
+    return 'Senhor, usa ${dailyVerse.reference} para renovar minha mente, '
+        'fortalecer minha fé e conduzir minhas decisões hoje. Amém.';
+  }
+
+  String _dailyReflectionQuestion(DailyVerseEntry dailyVerse) {
+    return 'Como ${dailyVerse.reference} pode orientar uma decisão concreta do '
+        'seu dia hoje?';
   }
 
   List<QuizQuestion> _ensureFiveQuestions({

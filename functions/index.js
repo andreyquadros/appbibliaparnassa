@@ -29,6 +29,64 @@ const STUDY_THEMES = [
   "Sabedoria em Proverbios",
 ];
 
+const DAILY_VERSE_PLAN = [
+  {
+    book: "Salmos",
+    chapters: 150,
+    theme: "Adoracao, confianca e cuidado de Deus",
+  },
+  {
+    book: "Proverbios",
+    chapters: 31,
+    theme: "Sabedoria para a vida diaria",
+  },
+  {
+    book: "Isaias",
+    chapters: 66,
+    theme: "Esperanca, santidade e consolo",
+  },
+  {
+    book: "Mateus",
+    chapters: 28,
+    theme: "O Reino de Deus revelado em Cristo",
+  },
+  {
+    book: "Marcos",
+    chapters: 16,
+    theme: "Servico, fe e discipulado",
+  },
+  {
+    book: "Lucas",
+    chapters: 24,
+    theme: "Graca, compaixao e salvacao",
+  },
+  {
+    book: "Joao",
+    chapters: 21,
+    theme: "Vida em Cristo",
+  },
+  {
+    book: "Romanos",
+    chapters: 16,
+    theme: "Evangelho, graca e transformacao",
+  },
+  {
+    book: "Efesios",
+    chapters: 6,
+    theme: "Identidade e maturidade em Cristo",
+  },
+  {
+    book: "Filipenses",
+    chapters: 4,
+    theme: "Alegria e perseveranca no Senhor",
+  },
+  {
+    book: "Colossenses",
+    chapters: 4,
+    theme: "Cristo no centro de todas as coisas",
+  },
+];
+
 const SEED_REWARDS = [
   {
     id: "tier1_commentary_matthew_henry",
@@ -163,6 +221,44 @@ function getDatePartsInTimeZone(date, timeZone) {
 function getDateKeyInTimeZone(date, timeZone) {
   const d = getDatePartsInTimeZone(date, timeZone);
   return `${d.year}-${d.month}-${d.day}`;
+}
+
+function dayOfYearFromDateKey(dateKey) {
+  const match = String(dateKey || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    const now = new Date();
+    return Math.floor(
+        (Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) -
+          Date.UTC(now.getUTCFullYear(), 0, 1)) /
+        86400000,
+    );
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  return Math.floor(
+      (Date.UTC(year, month - 1, day) - Date.UTC(year, 0, 1)) / 86400000,
+  );
+}
+
+function dailyVerseForDateKey(dateKey) {
+  let index = dayOfYearFromDateKey(dateKey);
+  for (const segment of DAILY_VERSE_PLAN) {
+    if (index < segment.chapters) {
+      return {
+        reference: `${segment.book} ${index + 1}:1`,
+        theme: segment.theme,
+      };
+    }
+    index -= segment.chapters;
+  }
+
+  const last = DAILY_VERSE_PLAN[DAILY_VERSE_PLAN.length - 1];
+  return {
+    reference: `${last.book} ${last.chapters}:1`,
+    theme: last.theme,
+  };
 }
 
 function getHourInTimeZone(date, timeZone) {
@@ -675,18 +771,32 @@ function fallbackStudySeedForDate(dateKey) {
 
 function fallbackStudy(theme, dateKey) {
   const preset = fallbackStudySeedForDate(dateKey);
+  const dailyVerse = dailyVerseForDateKey(dateKey);
   return {
-    title: preset.title,
-    theme: preset.theme || theme,
-    passage: preset.passage,
-    context: preset.context,
-    exegesis: preset.exegesis,
-    application: preset.application,
-    connection: preset.connection,
-    meditation: preset.meditation,
-    memoryVerse: preset.memoryVerse,
-    guidedPrayer: preset.guidedPrayer,
-    reflectionQuestion: preset.reflectionQuestion,
+    title: `Estudo Diario: ${dailyVerse.theme}`,
+    theme: dailyVerse.theme || theme || preset.theme,
+    passage: dailyVerse.reference,
+    context:
+      `A Palavra do Dia segue o plano anual de leitura devocional: ${dailyVerse.reference}. ` +
+      "Este texto foi separado para renovar sua meditacao de hoje no Senhor.",
+    exegesis:
+      `Observe as palavras centrais de ${dailyVerse.reference}, sua ligacao com o capitulo ` +
+      `e como o tema "${dailyVerse.theme}" transforma leitura em fe obediente.`,
+    application:
+      `Separe alguns minutos para ler ${dailyVerse.reference}, anotar uma verdade sobre Deus ` +
+      "e escolher uma atitude pratica de obediencia para hoje.",
+    connection:
+      `${dailyVerse.reference} se conecta com a historia maior da redencao: Deus formando ` +
+      "um povo que confia, obedece e caminha com Ele.",
+    meditation:
+      `A misericordia do Senhor se renova a cada manha; receba ${dailyVerse.reference} ` +
+      "como alimento novo para este dia.",
+    memoryVerse: dailyVerse.reference,
+    guidedPrayer:
+      `Senhor, usa ${dailyVerse.reference} para renovar minha mente, fortalecer minha fe ` +
+      "e conduzir minhas decisoes hoje. Amem.",
+    reflectionQuestion:
+      `Como ${dailyVerse.reference} pode orientar uma decisao concreta do seu dia hoje?`,
     quiz: preset.quiz,
     dateKey,
     source: "fallback",
@@ -709,18 +819,19 @@ function normalizeQuiz(rawQuiz) {
 function normalizeStudy(raw, theme, dateKey) {
   const safe = raw || {};
   const fallback = fallbackStudy(theme, dateKey);
+  const dailyVerse = dailyVerseForDateKey(dateKey);
   const quiz = normalizeQuiz(safe.quiz);
 
   return {
     title: sanitizeString(safe.title, fallback.title),
-    theme: sanitizeString(safe.theme, fallback.theme),
-    passage: sanitizeString(safe.passage, fallback.passage),
+    theme: dailyVerse.theme,
+    passage: dailyVerse.reference,
     context: sanitizeString(safe.context, fallback.context),
     exegesis: sanitizeString(safe.exegesis, fallback.exegesis),
     application: sanitizeString(safe.application, fallback.application),
     connection: sanitizeString(safe.connection, fallback.connection),
     meditation: sanitizeString(safe.meditation, fallback.meditation),
-    memoryVerse: sanitizeString(safe.memoryVerse, fallback.memoryVerse),
+    memoryVerse: dailyVerse.reference,
     guidedPrayer: sanitizeString(safe.guidedPrayer, fallback.guidedPrayer),
     reflectionQuestion: sanitizeString(
         safe.reflectionQuestion,
@@ -733,6 +844,7 @@ function normalizeStudy(raw, theme, dateKey) {
 }
 
 async function generateDailyStudyWithXai(dateKey, theme) {
+  const dailyVerse = dailyVerseForDateKey(dateKey);
   if (!hasXaiKey()) {
     logger.warn("XAI_API_KEY ausente. Usando fallback para estudo diario.");
     return fallbackStudy(theme, dateKey);
@@ -747,7 +859,9 @@ async function generateDailyStudyWithXai(dateKey, theme) {
 
   const userPrompt = `
 Data do estudo: ${dateKey}
-Tema: ${theme}
+Versiculo unico do dia: ${dailyVerse.reference}
+Tema do plano anual: ${dailyVerse.theme}
+Tema complementar: ${theme}
 Idioma: portugues (pt-BR)
 
 Retorne JSON no formato:
@@ -774,6 +888,7 @@ Retorne JSON no formato:
 }
 
 Regras:
+- O campo "passage" e o campo "memoryVerse" devem ser exatamente "${dailyVerse.reference}".
 - Gere 5 perguntas no quiz.
 - Traga referencias biblicas no texto quando adequado.
 - Evite linguagem polemica desnecessaria.
@@ -832,7 +947,7 @@ exports.generateDailyStudy = onSchedule(
       const now = new Date();
       const dateKey = getDateKeyInTimeZone(now, DEFAULT_TIMEZONE);
       const studyRef = db.collection("dailyStudies").doc(dateKey);
-      const theme = STUDY_THEMES[now.getDate() % STUDY_THEMES.length];
+      const theme = dailyVerseForDateKey(dateKey).theme;
       const study = await generateDailyStudyWithXai(dateKey, theme);
 
       await studyRef.set({
@@ -853,7 +968,7 @@ exports.generateStudyNow = onCall(XAI_FUNCTION_OPTIONS, async (request) => {
   const requestedDate = String(request.data?.dateKey || "").trim();
   const dateKey = requestedDate || getDateKeyInTimeZone(now, DEFAULT_TIMEZONE);
   const themeInput = String(request.data?.theme || "").trim();
-  const fallbackTheme = STUDY_THEMES[now.getDate() % STUDY_THEMES.length];
+  const fallbackTheme = dailyVerseForDateKey(dateKey).theme;
   const theme = themeInput || fallbackTheme;
 
   const study = await generateDailyStudyWithXai(dateKey, theme);
@@ -917,7 +1032,7 @@ exports.seedInitialContent = onCall(XAI_FUNCTION_OPTIONS, async (request) => {
   const studyRef = db.collection("dailyStudies").doc(dateKey);
   const studySnap = await studyRef.get();
   if (!studySnap.exists) {
-    const theme = STUDY_THEMES[now.getDate() % STUDY_THEMES.length];
+    const theme = dailyVerseForDateKey(dateKey).theme;
     const study = await generateDailyStudyWithXai(dateKey, theme);
     await studyRef.set({
       ...study,
