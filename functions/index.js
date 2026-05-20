@@ -396,6 +396,16 @@ function scoreSpiritualTopics({text = "", theme = "", reference = ""}) {
   return scores;
 }
 
+function durationWeightFromSeconds(value) {
+  const durationSeconds = Math.max(0, Math.min(7200, Number(value || 0)));
+  if (durationSeconds >= 900) return 5;
+  if (durationSeconds >= 600) return 4;
+  if (durationSeconds >= 300) return 3;
+  if (durationSeconds >= 120) return 2;
+  if (durationSeconds >= 30) return 1;
+  return 0;
+}
+
 function dominantTopicsFromScores(scores) {
   return Object.entries(scores || {})
       .map(([id, score]) => ({
@@ -463,11 +473,22 @@ async function recordLearningSignalInternal({
   const safeText = sanitizeString(text, "").slice(0, 1600);
   const safeReference = sanitizeString(reference, "").slice(0, 120);
   const safeTheme = sanitizeString(theme, "").slice(0, 120);
+  const safeMetadata = metadata && typeof metadata === "object" ? metadata : {};
+  const durationSeconds = Math.max(
+      0,
+      Math.min(7200, Number(safeMetadata.durationSeconds || 0)),
+  );
   const topicScores = scoreSpiritualTopics({
     text: safeText,
     reference: safeReference,
     theme: safeTheme,
   });
+  const durationWeight = durationWeightFromSeconds(durationSeconds);
+  if (durationWeight > 0) {
+    for (const topicId of Object.keys(topicScores)) {
+      topicScores[topicId] = Number(topicScores[topicId] || 0) + durationWeight;
+    }
+  }
   const userRef = db.collection("users").doc(uid);
   const signalRef = userRef.collection("learningSignals").doc();
 
@@ -489,7 +510,11 @@ async function recordLearningSignalInternal({
       theme: safeTheme,
       preview: safeText.slice(0, 500),
       topicScores,
-      metadata,
+      durationSeconds,
+      metadata: {
+        ...safeMetadata,
+        durationSeconds,
+      },
       createdAt: FieldValue.serverTimestamp(),
     });
 

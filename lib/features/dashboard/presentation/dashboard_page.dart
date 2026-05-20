@@ -198,7 +198,8 @@ class _DashboardPageState extends State<DashboardPage> {
             ],
           ),
           const SizedBox(height: 22),
-          if (widget.personalizedFocus.trim().isNotEmpty) ...[
+          if (widget.personalizedSignals < 10 ||
+              widget.personalizedFocus.trim().isNotEmpty) ...[
             _PersonalizedFocusCard(
               focus: widget.personalizedFocus,
               signals: widget.personalizedSignals,
@@ -462,14 +463,33 @@ class _PersonalizedFocusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final learning = signals < 10;
+    final safeFocus = focus.trim().isEmpty ? 'fé e perseverança' : focus.trim();
+    final title = learning ? 'Aprendendo sua jornada' : 'Caminho personalizado';
+    final message = learning
+        ? 'Aprendendo mais para ensinar melhor.'
+        : 'O app está percebendo que você tem buscado mais sobre $safeFocus.';
+    final details = learning
+        ? '$signals de 10 sinais iniciais considerados.'
+        : '$signals interações consideradas na sua jornada.';
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
       child: Ink(
         decoration: BoxDecoration(
-          color: AppColors.primary,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppColors.secondary),
+          border: Border.all(
+            color: AppColors.secondary.withValues(alpha: 0.55),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Padding(
           padding: const EdgeInsets.all(18),
@@ -479,12 +499,12 @@ class _PersonalizedFocusCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
+                  color: AppColors.primary.withValues(alpha: 0.08),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.psychology_alt_outlined,
-                  color: AppColors.accent,
+                  color: AppColors.primary,
                 ),
               ),
               const SizedBox(width: 14),
@@ -493,36 +513,35 @@ class _PersonalizedFocusCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Caminho personalizado',
+                      title,
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: AppColors.accent,
+                        color: AppColors.secondary,
                         letterSpacing: 0.6,
                       ),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'O app está percebendo que você tem buscado mais sobre $focus.',
+                      message,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white,
+                        color: AppColors.textPrimary,
                         height: 1.35,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    if (signals > 0) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        '$signals interações consideradas na sua jornada.',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.72),
-                        ),
+                    const SizedBox(height: 4),
+                    Text(
+                      details,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
                       ),
-                    ],
+                    ),
                   ],
                 ),
               ),
               const Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 16,
-                color: Colors.white,
+                color: AppColors.secondary,
               ),
             ],
           ),

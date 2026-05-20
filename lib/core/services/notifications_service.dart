@@ -50,8 +50,12 @@ class NotificationsService {
     }
 
     if (kDebugMode) {
-      final token = await _messaging.getToken();
-      debugPrint('FCM token: $token');
+      try {
+        final token = await _messaging.getToken();
+        debugPrint('FCM token: $token');
+      } catch (error) {
+        debugPrint('FCM token indisponível no ambiente local: $error');
+      }
     }
   }
 
@@ -69,7 +73,13 @@ class NotificationsService {
   }
 
   Future<void> _requestPermissions() async {
-    await _messaging.requestPermission();
+    try {
+      await _messaging.requestPermission();
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint('Permissão FCM indisponível neste ambiente: $error');
+      }
+    }
 
     final android = _localNotifications
         .resolvePlatformSpecificImplementation<

@@ -198,11 +198,13 @@ class _StudyContentState extends State<_StudyContent> {
   final AiService _aiService = AiService();
   final BibleApiService _bibleApiService = BibleApiService();
   late Future<BiblePassage> _passageFuture;
+  late DateTime _studyStartedAt;
   bool _explanationLoading = false;
 
   @override
   void initState() {
     super.initState();
+    _studyStartedAt = DateTime.now();
     _passageFuture = _loadPassage();
   }
 
@@ -210,8 +212,34 @@ class _StudyContentState extends State<_StudyContent> {
   void didUpdateWidget(covariant _StudyContent oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.study.passage != widget.study.passage) {
+      _recordStudyDuration(oldWidget.study);
+      _studyStartedAt = DateTime.now();
       _passageFuture = _loadPassage();
     }
+  }
+
+  @override
+  void dispose() {
+    _recordStudyDuration(widget.study);
+    super.dispose();
+  }
+
+  void _recordStudyDuration(DailyStudy study) {
+    final durationSeconds = DateTime.now()
+        .difference(_studyStartedAt)
+        .inSeconds;
+    if (durationSeconds < 10) {
+      return;
+    }
+    unawaited(
+      _aiService.recordLearningSignal(
+        type: 'tempo_estudo',
+        text: '${study.title} ${study.theme} ${study.mainText}',
+        reference: study.passage,
+        theme: study.theme,
+        metadata: <String, dynamic>{'durationSeconds': durationSeconds},
+      ),
+    );
   }
 
   Future<BiblePassage> _loadPassage() {
@@ -750,6 +778,7 @@ class _StudyChatSheetState extends State<_StudyChatSheet> {
   final AiService _aiService = AiService();
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  late final DateTime _chatStartedAt;
   final List<_ChatMessage> _messages = <_ChatMessage>[
     const _ChatMessage(
       role: 'assistant',
@@ -759,7 +788,25 @@ class _StudyChatSheetState extends State<_StudyChatSheet> {
   bool _sending = false;
 
   @override
+  void initState() {
+    super.initState();
+    _chatStartedAt = DateTime.now();
+  }
+
+  @override
   void dispose() {
+    final durationSeconds = DateTime.now().difference(_chatStartedAt).inSeconds;
+    if (durationSeconds >= 10) {
+      unawaited(
+        _aiService.recordLearningSignal(
+          type: 'tempo_chat_texto',
+          text: 'Chat com o texto ${widget.reference}',
+          reference: widget.reference,
+          theme: 'chat biblico',
+          metadata: <String, dynamic>{'durationSeconds': durationSeconds},
+        ),
+      );
+    }
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
